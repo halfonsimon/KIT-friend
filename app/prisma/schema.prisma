@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  FAMILY
+  FRIEND
+  WORK
+  OTHER
+}
+
+enum NotifyChannel {
+  NONE
+  EMAIL
+}
+
+model Contact {
+  id                 String        @id @default(cuid())
+  name               String
+  email              String?
+  category           Category      @default(FRIEND)
+  intervalDays       Int           @default(30)
+  lastContactedAt    DateTime?
+  createdAt          DateTime      @default(now())
+  lastReminderSentAt DateTime?
+  notifyChannel      NotifyChannel @default(NONE)
+  isActive           Boolean       @default(true)
+  notes              String?
+  interactions       Interaction[]
+}
+
+model Interaction {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id])
+  contactId String
+  notedAt   DateTime @default(now())
+  note      String?
+}
