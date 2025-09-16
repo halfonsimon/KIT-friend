@@ -1,0 +1,13 @@
+plan.docx
+
+node_modules/*
+.env*
+.next/*
+dev.db
+.DS_Store
+*.log
+*.swp
+.vercel/ 
+.turbo/ 
+coverage/ 
+out/
