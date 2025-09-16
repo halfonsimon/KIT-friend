@@ -1,7 +1,7 @@
 // src/app/api/contacts/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { computeStatus, type ContactLike } from "@/lib/due";
+import { prisma } from "../../../lib/db";
+import { computeStatus, type ContactLike } from "../../../lib/due";
 
 export const dynamic = "force-dynamic"; // always run on server, no caching
 
