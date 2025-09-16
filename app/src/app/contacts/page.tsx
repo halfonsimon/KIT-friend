@@ -1,9 +1,9 @@
 // Server component: fetch contacts from our API and render a simple list
 export const dynamic = "force-dynamic";
-import { formatDateUTC } from "@/lib/format";
+import { formatDateUTC } from "../../lib/format";
 import StatusBadge from "../../components/StatusBadge";
 import { headers } from "next/headers";
-import TouchButton from "@/components/TouchButton";
+import TouchButton from "../../components/TouchButton";
 
 type ApiRow = {
   id: string;
@@ -39,6 +39,15 @@ export default async function ContactsPage() {
       <p className="mt-1 text-sm text-slate-500">
         Overdue → Today → OK. Data is computed on the server.
       </p>
+
+      <div className="mt-4">
+        <a
+          href="/contacts/new"
+          className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-slate-50"
+        >
+          New contact
+        </a>
+      </div>
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed p-6 text-center text-sm text-slate-500">
@@ -85,7 +94,15 @@ export default async function ContactsPage() {
                     {formatDateUTC(r.nextDueAt)}
                   </td>
                   <td className="px-4 py-3">
-                    <TouchButton id={r.id} disabled={r.status === "today"} />
+                    <div className="flex items-center gap-2">
+                      <TouchButton id={r.id} disabled={r.status === "today"} />
+                      <a
+                        href={`/contacts/${r.id}/edit`}
+                        className="rounded-md border px-3 py-1 text-sm hover:bg-slate-50"
+                      >
+                        Edit
+                      </a>
+                    </div>
                   </td>
                 </tr>
               ))}

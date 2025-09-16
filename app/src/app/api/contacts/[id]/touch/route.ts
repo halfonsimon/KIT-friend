@@ -31,8 +31,9 @@ function toContactLike(c: {
 
 // POST /api/contacts/:id/touch
 // URL param `id` is taken from the folder name [id].
-export async function POST(_req: Request, ctx: { params: { id: string } }) {
-  const id = ctx.params?.id;
+export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
+  const id = params?.id;
 
   // 1) Validate input early
   if (!id) {
