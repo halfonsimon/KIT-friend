@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "../../components/StatusBadge";
 import { headers } from "next/headers";
+import TouchButton from "@/components/TouchButton";
 
 type ApiRow = {
   id: string;
@@ -60,6 +61,9 @@ export default async function ContactsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                   Next due
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -79,6 +83,9 @@ export default async function ContactsPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-700">
                     {formatDateUTC(r.nextDueAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <TouchButton id={r.id} disabled={r.status === "today"} />
                   </td>
                 </tr>
               ))}
