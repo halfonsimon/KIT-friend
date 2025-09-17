@@ -23,6 +23,12 @@ function Nav() {
           >
             Digest
           </Link>
+          <Link
+            className="rounded-md px-2 py-1 text-sm hover:bg-slate-100"
+            href="/settings"
+          >
+            Settings
+          </Link>
         </div>
       </nav>
     </header>
