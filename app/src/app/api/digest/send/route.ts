@@ -6,7 +6,11 @@ import { sendDigestSMTP } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
+// src/app/api/digest/send/route.ts
+export async function GET() {
+  // réutilise exactement la même logique que POST
+  return POST();
+}
 function recipients(): string[] {
   return (process.env.DIGEST_TO || "")
     .split(",")
