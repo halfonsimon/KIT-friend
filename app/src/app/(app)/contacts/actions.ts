@@ -4,8 +4,11 @@
 
 "use server";
 
-import { prisma } from "../../lib/db";
-import { ContactFormSchema, type ContactFormInput } from "../../lib/validation";
+import { prisma } from "../../../lib/db";
+import {
+  ContactFormSchema,
+  type ContactFormInput,
+} from "../../../lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 

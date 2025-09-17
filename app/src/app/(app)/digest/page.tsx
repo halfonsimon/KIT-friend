@@ -1,7 +1,7 @@
 // src/app/digest/page.tsx
-import { buildDigest } from "../../lib/digest";
-import { formatDateUTC } from "../../lib/format";
-import StatusBadge from "../../components/StatusBadge";
+import { buildDigest } from "../../../lib/digest";
+import { formatDateUTC } from "../../../lib/format";
+import StatusBadge from "../../../components/StatusBadge";
 import SendDigestButton from "./SendDigestButton";
 
 export const dynamic = "force-dynamic"; // always fresh

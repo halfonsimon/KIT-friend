@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import type { ActionState } from "../../app/contacts/actions";
+import type { ActionState } from "../../app/(app)/contacts/actions";
 import { CategoryEnum, NotifyEnum } from "../../lib/validation";
 
 type InitialValues = {

@@ -1,5 +1,5 @@
 // src/app/contacts/new/page.tsx
-import ContactForm from "../../../components/forms/ContactForm";
+import ContactForm from "../../../../components/forms/ContactForm";
 import { createContact } from "../actions";
 
 export default function NewContactPage() {
