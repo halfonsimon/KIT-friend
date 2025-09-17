@@ -34,7 +34,7 @@ export const ContactFormSchema = z.object({
         message: "Interval must be ≥ 1",
       }
     ),
-  isActive: z.coerce.boolean().default(true),
+  isActive: z.boolean(),
 });
 
 export type ContactFormInput = z.infer<typeof ContactFormSchema>;

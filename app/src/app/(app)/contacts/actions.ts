@@ -41,10 +41,9 @@ function readForm(fd: FormData): ContactFormInput {
   const intervalEntry = fd.get("intervalDays");
   const intervalDays = typeof intervalEntry === "string" ? intervalEntry : "";
 
-  // Active checkbox may be absent on the create page. If absent, leave undefined
-  // so Zod's default(true) applies. If present, it's a string like "on".
+  // Active checkbox: if present it's "on", if absent it means false (unchecked)
   const activeEntry = fd.get("isActive");
-  const isActive = typeof activeEntry === "string" ? activeEntry : undefined;
+  const isActive = activeEntry === "on";
 
   const data = { name, phone, category, intervalDays, isActive };
   return ContactFormSchema.parse(data);

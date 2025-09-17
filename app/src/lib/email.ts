@@ -49,7 +49,7 @@ export function renderDigestEmail(d: DigestData) {
     </p>
     ${section("Overdue", d.overdue)}
     ${section("Today", d.today)}
-    ${section("Upcoming (next 2)", d.upcoming)}
+    ${section("Upcoming", d.upcoming)}
     <p style="margin-top:24px;font-size:12px;color:#64748b">
       Only contacts with Notify ≠ NONE will be emailed.
     </p>

@@ -26,8 +26,8 @@ function toContactLike(c: {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    // ?active=0 to include inactive; default is only active
-    const onlyActive = url.searchParams.get("active") !== "0";
+    // ?active=1 to show only active; default shows all contacts
+    const onlyActive = url.searchParams.get("active") === "1";
 
     const contacts = await prisma.contact.findMany({
       where: onlyActive ? { isActive: true } : undefined,
