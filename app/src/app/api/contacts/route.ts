@@ -46,7 +46,6 @@ export async function GET(req: Request) {
         lastContactedAt: c.lastContactedAt,
         createdAt: c.createdAt,
         lastReminderSentAt: c.lastReminderSentAt,
-        notifyChannel: c.notifyChannel,
         isActive: c.isActive,
         notes: c.notes,
         status: computed.status,

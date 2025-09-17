@@ -19,8 +19,8 @@ export default function NewContactPage() {
             intervalDays: 30,
             isActive: true,
           }}
-          // No "Active" toggle on create (defaults to true)
-          showActiveToggle={false}
+          // Show "Active" toggle on create
+          showActiveToggle={true}
         />
       </div>
     </main>

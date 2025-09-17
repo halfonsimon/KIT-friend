@@ -5,27 +5,24 @@ import { prisma } from "./db";
 import { computeStatus, type ContactLike } from "./due";
 
 export type Category = "FAMILY" | "FRIEND" | "WORK" | "OTHER";
-export type NotifyChannel = "NONE" | "EMAIL";
 export type Status = "overdue" | "today" | "ok";
 
 export type DigestItem = {
   id: string;
   name: string;
+  phone: string | null;
   category: Category;
   status: Status;
   daysUntilDue: number;
   nextDueAt: Date;
-  notifyChannel: NotifyChannel;
 };
 
 export type DigestData = {
   overdue: DigestItem[];
   today: DigestItem[];
-  // Up to 2 soonest “ok” items
+  // Up to 2 soonest "ok" items
   upcoming: DigestItem[];
   stats: { overdue: number; today: number; upcoming: number; total: number };
-  // Same items but only those with notifyChannel !== "NONE"
-  notifiable: DigestItem[];
 };
 
 /** Helper: sort by next due (earliest first). */
@@ -41,11 +38,11 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
     select: {
       id: true,
       name: true,
+      phone: true,
       category: true,
       intervalDays: true,
       createdAt: true,
       lastContactedAt: true,
-      notifyChannel: true,
     },
   });
 
@@ -54,6 +51,7 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
     const base: ContactLike = {
       id: c.id,
       name: c.name,
+      phone: c.phone,
       intervalDays: c.intervalDays,
       createdAt: c.createdAt,
       lastContactedAt: c.lastContactedAt ?? undefined,
@@ -62,11 +60,11 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
     return {
       id: c.id,
       name: c.name,
+      phone: c.phone,
       category: c.category as Category,
       status: s.status as Status,
       daysUntilDue: s.daysUntilDue,
       nextDueAt: s.nextDueAt,
-      notifyChannel: c.notifyChannel as NotifyChannel,
     };
   });
 
@@ -76,12 +74,11 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
   const today = items.filter((i) => i.status === "today");
   const ok = items.filter((i) => i.status === "ok");
 
-  // 4) Upcoming = first 2 “ok”
+  // 4) Upcoming = first 2 "ok"
   const upcoming = ok.slice(0, 2);
 
-  // 5) Stats + notifiable (only from the 3 buckets we show)
+  // 5) Stats
   const shown = [...overdue, ...today, ...upcoming];
-  const notifiable = shown.filter((i) => i.notifyChannel !== "NONE");
 
   return {
     overdue,
@@ -93,6 +90,5 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
       upcoming: upcoming.length,
       total: shown.length,
     },
-    notifiable,
   };
 }
