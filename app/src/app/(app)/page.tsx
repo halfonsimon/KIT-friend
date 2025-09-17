@@ -1,11 +1,13 @@
+import Logo from "@/components/Logo";
+
 export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4">
       <div className="max-w-3xl mx-auto text-center">
         {/* Hero Section */}
         <div className="mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg">
-            <span className="text-2xl font-bold text-white">K</span>
+          <div className="mb-6">
+            <Logo size="lg" showGlow={true} animated={true} />
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 mb-4 leading-tight">
             Keep In

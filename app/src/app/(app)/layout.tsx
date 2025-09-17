@@ -1,6 +1,7 @@
 // src/app/(app)/layout.tsx
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 // Modern navigation with blue theme
 function Nav() {
@@ -11,12 +12,12 @@ function Nav() {
           <div className="flex items-center">
             <Link
               href="/"
-              className="flex items-center space-x-2 text-xl font-bold text-slate-900 hover:text-blue-600 transition-colors"
+              className="flex items-center space-x-3 text-xl font-bold text-slate-900 hover:text-blue-600 transition-colors"
             >
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                <span className="text-white text-sm font-bold">K</span>
-              </div>
-              <span className="hidden sm:block">Keep In Touch</span>
+              <Logo size="sm" animated={true} />
+              <span className="hidden sm:block bg-gradient-to-r from-slate-900 to-blue-800 bg-clip-text text-transparent">
+                Keep In Touch
+              </span>
             </Link>
           </div>
 
