@@ -32,19 +32,22 @@ function byNextDue(a: DigestItem, b: DigestItem) {
 
 /** Build the digest for a given moment (defaults to now). */
 export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
-  // 1) Load only active contacts; we need minimal fields
-  const rows = await prisma.contact.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      category: true,
-      intervalDays: true,
-      createdAt: true,
-      lastContactedAt: true,
-    },
-  });
+  // 1) Load settings and active contacts
+  const [settings, rows] = await Promise.all([
+    prisma.setting.findFirst(),
+    prisma.contact.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        category: true,
+        intervalDays: true,
+        createdAt: true,
+        lastContactedAt: true,
+      },
+    }),
+  ]);
 
   // 2) Compute status for each using the shared due logic
   const items: DigestItem[] = rows.map((c) => {
@@ -74,8 +77,9 @@ export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
   const today = items.filter((i) => i.status === "today");
   const ok = items.filter((i) => i.status === "ok");
 
-  // 4) Upcoming = first 2 "ok"
-  const upcoming = ok.slice(0, 2);
+  // 4) Upcoming = first N "ok" (from settings)
+  const upcomingCount = settings?.upcomingCount ?? 2;
+  const upcoming = ok.slice(0, upcomingCount);
 
   // 5) Stats
   const shown = [...overdue, ...today, ...upcoming];
