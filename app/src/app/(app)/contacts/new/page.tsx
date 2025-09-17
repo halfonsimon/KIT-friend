@@ -17,7 +17,6 @@ export default function NewContactPage() {
           initialValues={{
             category: "FRIEND",
             intervalDays: 30,
-            notifyChannel: "NONE",
             isActive: true,
           }}
           // No "Active" toggle on create (defaults to true)

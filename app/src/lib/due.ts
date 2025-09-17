@@ -3,6 +3,7 @@
 export type ContactLike = {
   id: string;
   name: string;
+  phone: string | null;
   intervalDays: number; // >= 1
   createdAt: Date | string;
   lastContactedAt?: Date | string | null;

@@ -14,21 +14,15 @@ enum Category {
   OTHER
 }
 
-enum NotifyChannel {
-  NONE
-  EMAIL
-}
-
 model Contact {
   id                 String        @id @default(cuid())
   name               String
-  email              String?
+  phone              String?
   category           Category      @default(FRIEND)
   intervalDays       Int           @default(30)
   lastContactedAt    DateTime?
   createdAt          DateTime      @default(now())
   lastReminderSentAt DateTime?
-  notifyChannel      NotifyChannel @default(NONE)
   isActive           Boolean       @default(true)
   notes              String?
   interactions       Interaction[]

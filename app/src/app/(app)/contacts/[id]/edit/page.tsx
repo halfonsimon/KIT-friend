@@ -17,7 +17,7 @@ export default async function EditContactPage({ params }: Params) {
     <main className="mx-auto max-w-xl px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Edit contact</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Update basic info, category, interval, and notification channel.
+        Update basic info, category, and interval.
       </p>
 
       <div className="mt-6 rounded-xl border p-4">
@@ -28,10 +28,9 @@ export default async function EditContactPage({ params }: Params) {
           initialValues={{
             id: c.id,
             name: c.name,
-            email: c.email,
+            phone: c.phone,
             category: c.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
             intervalDays: c.intervalDays,
-            notifyChannel: c.notifyChannel as "NONE" | "EMAIL",
             isActive: c.isActive,
           }}
         />

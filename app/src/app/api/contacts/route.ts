@@ -1,7 +1,6 @@
 // src/app/api/contacts/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { computeStatus, type ContactLike } from "@/lib/due";
 export const dynamic = "force-dynamic"; // always run on server, no caching
 
@@ -9,6 +8,7 @@ export const dynamic = "force-dynamic"; // always run on server, no caching
 function toContactLike(c: {
   id: string;
   name: string;
+  phone: string | null;
   intervalDays: number;
   createdAt: Date;
   lastContactedAt: Date | null;
@@ -16,6 +16,7 @@ function toContactLike(c: {
   return {
     id: c.id,
     name: c.name,
+    phone: c.phone,
     intervalDays: c.intervalDays,
     createdAt: c.createdAt,
     lastContactedAt: c.lastContactedAt ?? undefined,
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
       return {
         id: c.id,
         name: c.name,
-        email: c.email,
+        phone: c.phone,
         category: c.category,
         intervalDays: c.intervalDays,
         lastContactedAt: c.lastContactedAt,

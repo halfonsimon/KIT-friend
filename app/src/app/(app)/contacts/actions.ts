@@ -33,7 +33,7 @@ function isNextRedirect(err: unknown): boolean {
 function readForm(fd: FormData): ContactFormInput {
   // Extract raw values from FormData without using `any`.
   const name = String(fd.get("name") ?? "");
-  const email = String(fd.get("email") ?? "");
+  const phone = String(fd.get("phone") ?? "");
   const category = String(fd.get("category") ?? "");
 
   // intervalDays comes from an <input type="number"> as a string.
@@ -41,14 +41,12 @@ function readForm(fd: FormData): ContactFormInput {
   const intervalEntry = fd.get("intervalDays");
   const intervalDays = typeof intervalEntry === "string" ? intervalEntry : "";
 
-  const notifyChannel = String(fd.get("notifyChannel") ?? "");
-
   // Active checkbox may be absent on the create page. If absent, leave undefined
   // so Zod's default(true) applies. If present, it's a string like "on".
   const activeEntry = fd.get("isActive");
   const isActive = typeof activeEntry === "string" ? activeEntry : undefined;
 
-  const data = { name, email, category, intervalDays, notifyChannel, isActive };
+  const data = { name, phone, category, intervalDays, isActive };
   return ContactFormSchema.parse(data);
 }
 
@@ -61,10 +59,9 @@ export async function createContact(
     await prisma.contact.create({
       data: {
         name: input.name,
-        email: input.email ?? null,
+        phone: input.phone ?? null,
         category: input.category,
         intervalDays: input.intervalDays,
-        notifyChannel: input.notifyChannel,
         isActive: input.isActive,
       },
     });
@@ -108,10 +105,9 @@ export async function updateContact(
       where: { id },
       data: {
         name: input.name,
-        email: input.email ?? null,
+        phone: input.phone ?? null,
         category: input.category,
         intervalDays: input.intervalDays,
-        notifyChannel: input.notifyChannel,
         isActive: input.isActive,
       },
     });

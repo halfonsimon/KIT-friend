@@ -2,15 +2,14 @@
 
 import { useActionState } from "react";
 import type { ActionState } from "@/app/(app)/contacts/actions";
-import { CategoryEnum, NotifyEnum } from "@/lib/validation";
+import { CategoryEnum } from "@/lib/validation";
 
 type InitialValues = {
   id?: string;
   name?: string;
-  email?: string | null;
+  phone?: string | null;
   category?: "FAMILY" | "FRIEND" | "WORK" | "OTHER";
   intervalDays?: number;
-  notifyChannel?: "NONE" | "EMAIL";
   isActive?: boolean;
 };
 
@@ -35,10 +34,9 @@ export default function ContactForm({
   const v = {
     id: initialValues?.id ?? "",
     name: initialValues?.name ?? "",
-    email: initialValues?.email ?? "",
+    phone: initialValues?.phone ?? "",
     category: initialValues?.category ?? "FRIEND",
     intervalDays: initialValues?.intervalDays ?? 30,
-    notifyChannel: initialValues?.notifyChannel ?? "NONE",
     isActive: initialValues?.isActive ?? true,
   };
 
@@ -61,17 +59,14 @@ export default function ContactForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium">Email (optional)</label>
+        <label className="block text-sm font-medium">Phone (optional)</label>
         <input
-          name="email"
-          type="email"
-          defaultValue={v.email ?? ""}
+          name="phone"
+          type="tel"
+          defaultValue={v.phone ?? ""}
           className="mt-1 w-full rounded-md border px-3 py-2"
-          placeholder="alice@example.com"
+          placeholder="06 06 06 06 06"
         />
-        {state?.fieldErrors?.email && (
-          <p className="mt-1 text-xs text-red-600">{state.fieldErrors.email}</p>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -105,21 +100,6 @@ export default function ContactForm({
               {state.fieldErrors.intervalDays}
             </p>
           )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Notify via</label>
-          <select
-            name="notifyChannel"
-            defaultValue={v.notifyChannel}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-          >
-            {NotifyEnum.options.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
