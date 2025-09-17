@@ -4,6 +4,8 @@ import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import { headers } from "next/headers";
 import TouchButton from "@/components/TouchButton";
+import DeleteButton from "@/components/DeleteButton";
+import { deleteContact } from "./actions";
 
 type ApiRow = {
   id: string;
@@ -102,6 +104,11 @@ export default async function ContactsPage() {
                       >
                         Edit
                       </a>
+                      <DeleteButton
+                        contactId={r.id}
+                        contactName={r.name}
+                        action={deleteContact}
+                      />
                     </div>
                   </td>
                 </tr>

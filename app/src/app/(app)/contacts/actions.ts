@@ -144,3 +144,31 @@ export async function updateContact(
     return { ok: false, message: "Server error. Please try again." };
   }
 }
+
+export async function deleteContact(
+  _prev: ActionState | null,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const id = String(formData.get("id") ?? "");
+    if (!id) return { ok: false, message: "Missing id" };
+
+    await prisma.contact.delete({
+      where: { id },
+    });
+    revalidatePath("/contacts");
+    redirect("/contacts");
+  } catch (err) {
+    if (isNextRedirect(err)) throw err;
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      err.code === "P2025"
+    ) {
+      return { ok: false, message: "Contact not found" };
+    }
+    console.error("deleteContact error:", err);
+    return { ok: false, message: "Server error. Please try again." };
+  }
+}
