@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import ContactForm from "@/components/forms/ContactForm";
 import { notFound } from "next/navigation";
-import { updateContact } from "@/actions";
+import { updateContact } from "../../actions";
 
 type Params = { params: Promise<{ id: string }> };
 

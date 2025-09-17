@@ -1,9 +1,9 @@
 // Server component: fetch contacts from our API and render a simple list
 export const dynamic = "force-dynamic";
-import { formatDateUTC } from "../../../lib/format";
-import StatusBadge from "../../../components/StatusBadge";
+import { formatDateUTC } from "@/lib/format";
+import StatusBadge from "@/components/StatusBadge";
 import { headers } from "next/headers";
-import TouchButton from "../../../components/TouchButton";
+import TouchButton from "@/components/TouchButton";
 
 type ApiRow = {
   id: string;
