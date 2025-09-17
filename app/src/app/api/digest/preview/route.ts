@@ -1,6 +1,6 @@
 // src/app/api/digest/preview/route.ts
 import { NextResponse } from "next/server";
-import { buildDigest } from "../../../../lib/digest";
+import { buildDigest } from "@/lib/digest";
 
 export const dynamic = "force-dynamic";
 
