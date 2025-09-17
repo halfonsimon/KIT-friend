@@ -1,8 +1,8 @@
 // src/app/api/contacts/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/db";
+import { prisma } from "@/lib/db";
+import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { computeStatus, type ContactLike } from "../../../lib/due";
-
 export const dynamic = "force-dynamic"; // always run on server, no caching
 
 // Map Prisma Contact to ContactLike that our due logic expects

@@ -2,6 +2,7 @@
 import { buildDigest } from "../../lib/digest";
 import { formatDateUTC } from "../../lib/format";
 import StatusBadge from "../../components/StatusBadge";
+import SendDigestButton from "./SendDigestButton";
 
 export const dynamic = "force-dynamic"; // always fresh
 
@@ -65,6 +66,7 @@ export default async function DigestPage() {
       <Section title="Overdue" items={data.overdue} />
       <Section title="Today" items={data.today} />
       <Section title="Upcoming (next 2)" items={data.upcoming} />
+      <SendDigestButton />
     </main>
   );
 }
