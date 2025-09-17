@@ -51,7 +51,7 @@ export function renderDigestEmail(d: DigestData) {
     ${section("Today", d.today)}
     ${section("Upcoming", d.upcoming)}
     <p style="margin-top:24px;font-size:12px;color:#64748b">
-      Only contacts with Notify ≠ NONE will be emailed.
+      Only active contacts are included in this digest.
     </p>
   </body>
 </html>`;

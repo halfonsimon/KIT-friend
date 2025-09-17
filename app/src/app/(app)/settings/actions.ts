@@ -14,6 +14,9 @@ const Schema = z.object({
   other: z.coerce.number().int().min(1).max(365),
   sendEmailDigest: z.boolean().optional(),
   sendWhatsappDigest: z.boolean().optional(),
+  digestTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
 });
 
 export async function updateSettings(formData: FormData) {
@@ -26,6 +29,7 @@ export async function updateSettings(formData: FormData) {
     // checkboxes -> 'on' ou null
     sendEmailDigest: formData.get("sendEmailDigest") === "on",
     sendWhatsappDigest: formData.get("sendWhatsappDigest") === "on",
+    digestTime: formData.get("digestTime"),
   });
 
   await prisma.setting.upsert({
@@ -39,6 +43,7 @@ export async function updateSettings(formData: FormData) {
       defaultOtherDays: data.other,
       sendEmailDigest: data.sendEmailDigest ?? true,
       sendWhatsappDigest: data.sendWhatsappDigest ?? false,
+      digestTime: data.digestTime,
     },
     update: {
       upcomingCount: data.upcomingCount,
@@ -48,6 +53,7 @@ export async function updateSettings(formData: FormData) {
       defaultOtherDays: data.other,
       sendEmailDigest: data.sendEmailDigest ?? true,
       sendWhatsappDigest: data.sendWhatsappDigest ?? false,
+      digestTime: data.digestTime,
     },
   });
 

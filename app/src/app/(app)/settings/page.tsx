@@ -30,23 +30,40 @@ export default async function SettingsPage() {
             />
           </label>
 
-          <div className="mt-4 flex items-center gap-6">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="sendEmailDigest"
-                defaultChecked={s.sendEmailDigest}
-              />
-              Send daily digest by Email
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="sendWhatsappDigest"
-                defaultChecked={s.sendWhatsappDigest}
-              />
-              Send daily digest by WhatsApp
-            </label>
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-6">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="sendEmailDigest"
+                  defaultChecked={s.sendEmailDigest}
+                />
+                Send daily digest by Email
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="sendWhatsappDigest"
+                  defaultChecked={s.sendWhatsappDigest}
+                />
+                Send daily digest by WhatsApp
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm">
+                Digest time (24h format)
+                <input
+                  type="time"
+                  name="digestTime"
+                  defaultValue={s.digestTime}
+                  className="mt-1 w-32 rounded-md border px-2 py-1"
+                />
+              </label>
+              <p className="mt-1 text-xs text-slate-500">
+                Time when the daily digest will be sent (if enabled)
+              </p>
+            </div>
           </div>
 
           <p className="mt-2 text-xs text-slate-500">

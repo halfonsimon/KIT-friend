@@ -38,11 +38,12 @@ model Interaction {
 
 model Setting {
   id                 Int     @id @default(1)  // singleton row
-  upcomingCount      Int     @default(2)      // combien d’“Upcoming” (Overdue/Today illimités)
+  upcomingCount      Int     @default(2)      // combien d'"Upcoming" (Overdue/Today illimités)
   defaultFamilyDays  Int     @default(7)
   defaultFriendDays  Int     @default(30)
   defaultWorkDays    Int     @default(14)
   defaultOtherDays   Int     @default(21)
-  sendEmailDigest    Boolean @default(true)   // on/off global pour l’email (WhatsApp plus tard)
+  sendEmailDigest    Boolean @default(true)   // on/off global pour l'email (WhatsApp plus tard)
   sendWhatsappDigest Boolean @default(false)  // on/off global pour WhatsApp (placeholder)
+  digestTime         String  @default("06:00") // heure d'envoi du digest (HH:MM format)
 }

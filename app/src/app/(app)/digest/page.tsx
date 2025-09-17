@@ -60,7 +60,7 @@ export default async function DigestPage() {
         Upcoming <b>{data.stats.upcoming}</b>
       </p>
       <p className="mt-2 text-xs text-slate-500">
-        Only contacts with <b>Notify ≠ NONE</b> would actually be emailed.
+        Only contacts with <b>isActive = true</b> are included in the digest.
       </p>
 
       <Section title="Overdue" items={data.overdue} />

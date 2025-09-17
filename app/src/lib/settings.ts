@@ -13,6 +13,7 @@ const FALLBACK = {
   } as Record<Category, number>,
   sendEmailDigest: true,
   sendWhatsappDigest: false,
+  digestTime: "06:00",
 };
 
 export type AppSettings = typeof FALLBACK;
@@ -42,6 +43,7 @@ export async function getSettings(): Promise<AppSettings> {
     },
     sendEmailDigest: !!row.sendEmailDigest,
     sendWhatsappDigest: !!row.sendWhatsappDigest,
+    digestTime: row.digestTime ?? FALLBACK.digestTime,
   };
 }
 
