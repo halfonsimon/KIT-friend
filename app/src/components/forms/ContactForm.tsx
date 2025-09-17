@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { ActionState } from "@/app/(app)/contacts/actions";
 import { CategoryEnum } from "@/lib/validation";
 
@@ -18,6 +18,12 @@ type Props = {
   initialValues?: InitialValues;
   submitLabel: string;
   showActiveToggle?: boolean; // show on edit
+  categoryDefaults?: {
+    FAMILY: number;
+    FRIEND: number;
+    WORK: number;
+    OTHER: number;
+  };
 };
 
 export default function ContactForm({
@@ -25,19 +31,33 @@ export default function ContactForm({
   initialValues,
   submitLabel,
   showActiveToggle,
+  categoryDefaults,
 }: Props) {
   // useFormState wires the server action to this form and returns last result
   const [state, formAction] = useActionState<ActionState, FormData>(action, {
     ok: true,
   });
 
+  // Track selected category for dynamic placeholder
+  const [selectedCategory, setSelectedCategory] = useState<
+    "FAMILY" | "FRIEND" | "WORK" | "OTHER"
+  >(initialValues?.category ?? "FRIEND");
+
   const v = {
     id: initialValues?.id ?? "",
     name: initialValues?.name ?? "",
     phone: initialValues?.phone ?? "",
     category: initialValues?.category ?? "FRIEND",
-    intervalDays: initialValues?.intervalDays ?? 30,
+    intervalDays: initialValues?.intervalDays, // Can be undefined for dynamic defaults
     isActive: initialValues?.isActive ?? true,
+  };
+
+  // Get placeholder based on selected category
+  const getIntervalPlaceholder = () => {
+    if (categoryDefaults) {
+      return `Default: ${categoryDefaults[selectedCategory]} days`;
+    }
+    return "30";
   };
 
   return (
@@ -75,6 +95,11 @@ export default function ContactForm({
           <select
             name="category"
             defaultValue={v.category}
+            onChange={(e) =>
+              setSelectedCategory(
+                e.target.value as "FAMILY" | "FRIEND" | "WORK" | "OTHER"
+              )
+            }
             className="mt-1 w-full rounded-md border px-3 py-2"
           >
             {CategoryEnum.options.map((c) => (
@@ -92,7 +117,8 @@ export default function ContactForm({
             type="number"
             min={1}
             step={1}
-            defaultValue={v.intervalDays}
+            defaultValue={v.intervalDays ?? ""}
+            placeholder={getIntervalPlaceholder()}
             className="mt-1 w-full rounded-md border px-3 py-2"
           />
           {state?.fieldErrors?.intervalDays && (

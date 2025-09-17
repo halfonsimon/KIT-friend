@@ -56,12 +56,35 @@ export async function createContact(
 ): Promise<ActionState> {
   try {
     const input = readForm(formData);
+
+    // If intervalDays is not provided, use category default
+    let intervalDays = input.intervalDays;
+    if (intervalDays === undefined) {
+      const settings = await prisma.setting.findFirst();
+      switch (input.category) {
+        case "FAMILY":
+          intervalDays = settings?.defaultFamilyDays ?? 7;
+          break;
+        case "FRIEND":
+          intervalDays = settings?.defaultFriendDays ?? 30;
+          break;
+        case "WORK":
+          intervalDays = settings?.defaultWorkDays ?? 14;
+          break;
+        case "OTHER":
+          intervalDays = settings?.defaultOtherDays ?? 21;
+          break;
+        default:
+          intervalDays = 30;
+      }
+    }
+
     await prisma.contact.create({
       data: {
         name: input.name,
         phone: input.phone ?? null,
         category: input.category,
-        intervalDays: input.intervalDays,
+        intervalDays,
         isActive: input.isActive,
       },
     });
@@ -101,13 +124,36 @@ export async function updateContact(
     if (!id) return { ok: false, message: "Missing id" };
 
     const input = readForm(formData);
+
+    // If intervalDays is not provided, use category default
+    let intervalDays = input.intervalDays;
+    if (intervalDays === undefined) {
+      const settings = await prisma.setting.findFirst();
+      switch (input.category) {
+        case "FAMILY":
+          intervalDays = settings?.defaultFamilyDays ?? 7;
+          break;
+        case "FRIEND":
+          intervalDays = settings?.defaultFriendDays ?? 30;
+          break;
+        case "WORK":
+          intervalDays = settings?.defaultWorkDays ?? 14;
+          break;
+        case "OTHER":
+          intervalDays = settings?.defaultOtherDays ?? 21;
+          break;
+        default:
+          intervalDays = 30;
+      }
+    }
+
     await prisma.contact.update({
       where: { id },
       data: {
         name: input.name,
         phone: input.phone ?? null,
         category: input.category,
-        intervalDays: input.intervalDays,
+        intervalDays,
         isActive: input.isActive,
       },
     });

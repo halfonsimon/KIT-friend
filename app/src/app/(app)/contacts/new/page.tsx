@@ -1,8 +1,10 @@
 // src/app/contacts/new/page.tsx
 import ContactForm from "@/components/forms/ContactForm";
 import { createContact } from "../actions";
+import { prisma } from "@/lib/db";
 
-export default function NewContactPage() {
+export default async function NewContactPage() {
+  const settings = await prisma.setting.findFirst();
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">New contact</h1>
@@ -16,8 +18,13 @@ export default function NewContactPage() {
           submitLabel="Create contact"
           initialValues={{
             category: "FRIEND",
-            intervalDays: 30,
             isActive: true,
+          }}
+          categoryDefaults={{
+            FAMILY: settings?.defaultFamilyDays ?? 7,
+            FRIEND: settings?.defaultFriendDays ?? 30,
+            WORK: settings?.defaultWorkDays ?? 14,
+            OTHER: settings?.defaultOtherDays ?? 21,
           }}
           // Show "Active" toggle on create
           showActiveToggle={true}

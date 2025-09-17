@@ -18,7 +18,22 @@ export const ContactFormSchema = z.object({
     .transform((s) => (s === "" ? undefined : s))
     .optional(),
   category: CategoryEnum,
-  intervalDays: z.coerce.number().int().min(1, "Interval must be ≥ 1"),
+  intervalDays: z
+    .union([
+      z
+        .string()
+        .trim()
+        .transform((s) => (s === "" ? undefined : parseInt(s) || undefined)),
+      z.number(),
+      z.undefined(),
+    ])
+    .optional()
+    .refine(
+      (val) => val === undefined || (typeof val === "number" && val >= 1),
+      {
+        message: "Interval must be ≥ 1",
+      }
+    ),
   isActive: z.coerce.boolean().default(true),
 });
 
