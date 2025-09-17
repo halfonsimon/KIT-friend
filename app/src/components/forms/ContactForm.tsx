@@ -71,7 +71,7 @@ export default function ContactForm({
           required
           defaultValue={v.name}
           className="mt-1 w-full rounded-md border px-3 py-2"
-          placeholder="Alice Dupont"
+          placeholder="His/her name"
         />
         {state?.fieldErrors?.name && (
           <p className="mt-1 text-xs text-red-600">{state.fieldErrors.name}</p>
@@ -85,7 +85,7 @@ export default function ContactForm({
           type="tel"
           defaultValue={v.phone ?? ""}
           className="mt-1 w-full rounded-md border px-3 py-2"
-          placeholder="06 06 06 06 06"
+          placeholder="+972 5......."
         />
       </div>
 
