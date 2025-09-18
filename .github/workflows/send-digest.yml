@@ -1,0 +1,40 @@
+name: Send Daily Digest
+
+on:
+  schedule:
+    # Runs every hour to check if it's time to send the digest
+    # The API will handle the timing logic based on your digestTime setting
+    - cron: "0 * * * *"
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send digest email
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          echo "Attempting to send daily digest..."
+
+          # Call your deployed app's API endpoint
+            response=$(curl -s -w "%{http_code}" -X POST "${APP_URL}/api/digest/send" \
+            -H "Content-Type: application/json")
+
+          http_code="${response: -3}"
+          body="${response%???}"
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Digest sent successfully!"
+          elif [ "$http_code" -eq 400 ] && echo "$body" | grep -q "Not time to send digest yet"; then
+            echo "⏰ Not time to send digest yet - this is normal"
+          else
+            echo "❌ Failed to send digest"
+            exit 1
+          fi
