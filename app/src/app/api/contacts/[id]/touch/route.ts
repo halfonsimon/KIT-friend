@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 function toContactLike(c: {
   id: string;
   name: string;
+  phone: string | null;
   intervalDays: number;
   createdAt: Date;
   lastContactedAt: Date | null;
@@ -23,6 +24,7 @@ function toContactLike(c: {
   return {
     id: c.id,
     name: c.name,
+    phone: c.phone,
     intervalDays: c.intervalDays,
     createdAt: c.createdAt,
     lastContactedAt: c.lastContactedAt ?? undefined,
@@ -31,7 +33,10 @@ function toContactLike(c: {
 
 // POST /api/contacts/:id/touch
 // URL param `id` is taken from the folder name [id].
-export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const params = await ctx.params;
   const id = params?.id;
 
