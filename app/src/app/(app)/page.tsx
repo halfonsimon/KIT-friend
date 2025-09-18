@@ -87,8 +87,8 @@ export default function Home() {
               Smart Reminders
             </h3>
             <p className="text-sm text-slate-600">
-              Set custom intervals for each contact and get notified when it&apos;s
-              time to reach out.
+              Set custom intervals for each contact and get notified when
+              it&apos;s time to reach out.
             </p>
           </div>
 
@@ -110,8 +110,8 @@ export default function Home() {
             </div>
             <h3 className="font-semibold text-slate-900 mb-2">Daily Digest</h3>
             <p className="text-sm text-slate-600">
-              Get a beautiful daily email with overdue, today&apos;s, and upcoming
-              contacts.
+              Get a beautiful daily email with overdue, today&apos;s, and
+              upcoming contacts.
             </p>
           </div>
 
