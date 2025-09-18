@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background rounded square with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background -->
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#bgGradient)"/>
+  
+  <!-- Inner rounded square -->
+  <rect x="64" y="64" width="384" height="384" rx="64" ry="64" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  
+  <!-- Network of connected circles (like your image) -->
+  <g transform="translate(256, 256)">
+    <!-- Central circle -->
+    <circle cx="0" cy="0" r="24" fill="white"/>
+    
+    <!-- Surrounding circles -->
+    <circle cx="0" cy="-80" r="20" fill="white" opacity="0.9"/>
+    <circle cx="56" cy="-56" r="20" fill="white" opacity="0.9"/>
+    <circle cx="80" cy="0" r="20" fill="white" opacity="0.9"/>
+    <circle cx="56" cy="56" r="20" fill="white" opacity="0.9"/>
+    <circle cx="0" cy="80" r="20" fill="white" opacity="0.9"/>
+    <circle cx="-56" cy="56" r="20" fill="white" opacity="0.9"/>
+    <circle cx="-80" cy="0" r="20" fill="white" opacity="0.9"/>
+    <circle cx="-56" cy="-56" r="20" fill="white" opacity="0.9"/>
+    
+    <!-- Connection lines -->
+    <line x1="0" y1="-24" x2="0" y2="-60" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="17" y1="-17" x2="39" y2="-39" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="24" y1="0" x2="60" y2="0" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="17" y1="17" x2="39" y2="39" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="0" y1="24" x2="0" y2="60" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="-17" y1="17" x2="-39" y2="39" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="-24" y1="0" x2="-60" y2="0" stroke="white" stroke-width="4" opacity="0.7"/>
+    <line x1="-17" y1="-17" x2="-39" y2="-39" stroke="white" stroke-width="4" opacity="0.7"/>
+  </g>
+</svg>
