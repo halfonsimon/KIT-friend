@@ -117,6 +117,9 @@ export default async function SettingsPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     Time when the daily digest will be sent (24-hour format)
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    (UTC, so -3 IS summer and -2 IS winter)
+                  </p>
                 </div>
               </div>
 

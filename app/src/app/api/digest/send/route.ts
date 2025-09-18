@@ -7,9 +7,9 @@ import { sendDigestSMTP } from "@/lib/mailer";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // src/app/api/digest/send/route.ts
-export async function GET() {
+export async function GET(request: Request) {
   // réutilise exactement la même logique que POST
-  return POST();
+  return POST(request);
 }
 function recipients(): string[] {
   return (process.env.DIGEST_TO || "")
@@ -27,8 +27,12 @@ function hasSMTP() {
   );
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    // Check for test mode parameter
+    const url = new URL(request.url);
+    const isTest = url.searchParams.get("test") === "true";
+
     // Check if email digest is enabled
     const { prisma } = await import("@/lib/db");
     const settings = await prisma.setting.findFirst();
@@ -42,29 +46,32 @@ export async function POST() {
     }
 
     // Check if it's the right time to send (within 10 minutes of configured time)
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
-    const targetTime = settings.digestTime || "06:00";
+    // Skip this check in test mode
+    if (!isTest) {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+      const targetTime = settings.digestTime || "06:00";
 
-    // Parse target time
-    const [targetHour, targetMinute] = targetTime.split(":").map(Number);
-    const targetMinutes = targetHour * 60 + targetMinute;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      // Parse target time
+      const [targetHour, targetMinute] = targetTime.split(":").map(Number);
+      const targetMinutes = targetHour * 60 + targetMinute;
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    // Check if we're within 10 minutes of target time (to avoid missing due to cron timing)
-    const timeDiff = Math.abs(currentMinutes - targetMinutes);
-    if (timeDiff > 10 && timeDiff < 24 * 60 - 10) {
-      // Not within 10 minutes, and not crossing midnight
-      return NextResponse.json({
-        ok: false,
-        error: `Not time to send digest yet. Current: ${currentTime}, Target: ${targetTime}`,
-        skipped: true,
-        currentTime,
-        targetTime,
-      });
+      // Check if we're within 10 minutes of target time (to avoid missing due to cron timing)
+      const timeDiff = Math.abs(currentMinutes - targetMinutes);
+      if (timeDiff > 10 && timeDiff < 24 * 60 - 10) {
+        // Not within 10 minutes, and not crossing midnight
+        return NextResponse.json({
+          ok: false,
+          error: `Not time to send digest yet. Current: ${currentTime}, Target: ${targetTime}`,
+          skipped: true,
+          currentTime,
+          targetTime,
+        });
+      }
     }
 
     const data = await buildDigest(new Date());

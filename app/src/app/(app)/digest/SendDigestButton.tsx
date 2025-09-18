@@ -15,7 +15,8 @@ export default function SendDigestButton() {
     setStatus("sending");
     setMsg("");
     try {
-      const res = await fetch("/api/digest/send", { method: "POST" });
+      // Add test parameter to bypass timing check
+      const res = await fetch("/api/digest/send?test=true", { method: "POST" });
       const j = (await res.json()) as SendResult;
       if (res.ok && j.ok) {
         setStatus("ok");
