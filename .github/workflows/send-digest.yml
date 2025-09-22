@@ -30,11 +30,15 @@ jobs:
           echo "HTTP Status: $http_code"
           echo "Response: $body"
 
-          if [ "$http_code" -eq 200 ]; then
+          # Parse the JSON response to check if email was actually sent
+          if [ "$http_code" -eq 200 ] && echo "$body" | grep -q '"ok":true'; then
             echo "✅ Digest sent successfully!"
-          elif [ "$http_code" -eq 400 ] && echo "$body" | grep -q "Not time to send digest yet"; then
+          elif echo "$body" | grep -q "Not time to send digest yet"; then
             echo "⏰ Not time to send digest yet - this is normal"
+          elif echo "$body" | grep -q '"skipped":true'; then
+            echo "⏸️ Digest skipped (disabled or no recipients)"
           else
             echo "❌ Failed to send digest"
+            echo "Response body: $body"
             exit 1
           fi

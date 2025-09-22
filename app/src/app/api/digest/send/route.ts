@@ -60,9 +60,9 @@ export async function POST(request: Request) {
       const targetMinutes = targetHour * 60 + targetMinute;
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-      // Check if we're within 10 minutes of target time (to avoid missing due to cron timing)
+      // Check if we're within 30 minutes of target time (to avoid missing due to cron timing)
       const timeDiff = Math.abs(currentMinutes - targetMinutes);
-      if (timeDiff > 10 && timeDiff < 24 * 60 - 10) {
+      if (timeDiff > 30 && timeDiff < 24 * 60 - 30) {
         // Not within 10 minutes, and not crossing midnight
         return NextResponse.json({
           ok: false,
