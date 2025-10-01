@@ -19,8 +19,9 @@ export interface PushSubscriptionData {
 export async function savePushSubscription(subscription: PushSubscriptionData) {
   try {
     // Use raw SQL to avoid coupling to generated Prisma client types during rollout
+    // Use endpoint as deterministic primary key to avoid DB extensions
     await prisma.$executeRawUnsafe(
-      'INSERT INTO "PushSubscription" ("id", "endpoint", "p256dh", "auth") VALUES (gen_random_uuid(), $1, $2, $3)\n       ON CONFLICT ("endpoint") DO UPDATE SET "p256dh" = EXCLUDED."p256dh", "auth" = EXCLUDED."auth"',
+      'INSERT INTO "PushSubscription" ("id", "endpoint", "p256dh", "auth") VALUES ($1, $1, $2, $3)\n       ON CONFLICT ("endpoint") DO UPDATE SET "p256dh" = EXCLUDED."p256dh", "auth" = EXCLUDED."auth"',
       subscription.endpoint,
       subscription.keys.p256dh,
       subscription.keys.auth
