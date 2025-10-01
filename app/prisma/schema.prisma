@@ -48,3 +48,11 @@ model Setting {
   digestTime         String  @default("06:00") // heure d'envoi du digest (HH:MM format)
   lastEmailDigestAt  DateTime?
 }
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
