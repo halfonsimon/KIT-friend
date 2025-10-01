@@ -46,8 +46,11 @@ export async function POST(request: Request) {
     }
 
     // Idempotency: if we already sent a digest today, skip (only for real runs)
-    if (!isTest && (settings as any)?.lastEmailDigestAt) {
-      const last = new Date((settings as any).lastEmailDigestAt);
+    const lastEmailDigestAt = (
+      settings as unknown as { lastEmailDigestAt?: Date | null }
+    )?.lastEmailDigestAt;
+    if (!isTest && lastEmailDigestAt) {
+      const last = new Date(lastEmailDigestAt);
       const nowUtcDay = new Date().toISOString().slice(0, 10);
       const lastUtcDay = last.toISOString().slice(0, 10);
       if (nowUtcDay === lastUtcDay) {
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
           ok: false,
           skipped: true,
           error: "Digest already sent today",
-          lastEmailDigestAt: (settings as any).lastEmailDigestAt,
+          lastEmailDigestAt,
         });
       }
     }
@@ -122,10 +125,10 @@ export async function POST(request: Request) {
 
     // Mark as sent now (idempotency for the day)
     if (!isTest) {
-      await prisma.setting.update({
-        where: { id: 1 },
-        data: { lastEmailDigestAt: new Date() } as any,
-      });
+      // Use raw SQL to avoid type mismatch during rollout when Prisma types may lag
+      await prisma.$executeRawUnsafe(
+        'UPDATE "Setting" SET "lastEmailDigestAt" = NOW() WHERE "id" = 1'
+      );
     }
 
     return NextResponse.json({
