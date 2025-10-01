@@ -45,6 +45,21 @@ export async function POST(request: Request) {
       });
     }
 
+    // Idempotency: if we already sent a digest today, skip (only for real runs)
+    if (!isTest && (settings as any)?.lastEmailDigestAt) {
+      const last = new Date((settings as any).lastEmailDigestAt);
+      const nowUtcDay = new Date().toISOString().slice(0, 10);
+      const lastUtcDay = last.toISOString().slice(0, 10);
+      if (nowUtcDay === lastUtcDay) {
+        return NextResponse.json({
+          ok: false,
+          skipped: true,
+          error: "Digest already sent today",
+          lastEmailDigestAt: (settings as any).lastEmailDigestAt,
+        });
+      }
+    }
+
     // Check if it's the right time to send (within 10 minutes of configured time)
     // Skip this check in test mode
     if (!isTest) {
@@ -104,6 +119,14 @@ export async function POST(request: Request) {
     }
 
     const result = await sendDigestSMTP(to, subject, html);
+
+    // Mark as sent now (idempotency for the day)
+    if (!isTest) {
+      await prisma.setting.update({
+        where: { id: 1 },
+        data: { lastEmailDigestAt: new Date() } as any,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

@@ -46,4 +46,5 @@ model Setting {
   sendEmailDigest    Boolean @default(true)   // on/off global pour l'email (WhatsApp plus tard)
   sendWhatsappDigest Boolean @default(false)  // on/off global pour WhatsApp (placeholder)
   digestTime         String  @default("06:00") // heure d'envoi du digest (HH:MM format)
+  lastEmailDigestAt  DateTime?
 }
