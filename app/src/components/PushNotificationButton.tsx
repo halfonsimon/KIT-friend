@@ -35,10 +35,29 @@ export default function PushNotificationButton() {
         return;
       }
 
+      // Helper to convert base64 public key to required Uint8Array
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) {
+        throw new Error("Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+      }
+
       // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
       // Send subscription to server
@@ -60,7 +79,8 @@ export default function PushNotificationButton() {
       }
     } catch (error) {
       console.error("Error subscribing to push notifications:", error);
-      alert("Failed to enable push notifications");
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`Failed to enable push notifications: ${msg}`);
     } finally {
       setIsLoading(false);
     }
