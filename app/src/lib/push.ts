@@ -18,18 +18,13 @@ export interface PushSubscriptionData {
 
 export async function savePushSubscription(subscription: PushSubscriptionData) {
   try {
-    await prisma.pushSubscription.upsert({
-      where: { endpoint: subscription.endpoint },
-      create: {
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      },
-      update: {
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      },
-    });
+    // Use raw SQL to avoid coupling to generated Prisma client types during rollout
+    await prisma.$executeRawUnsafe(
+      'INSERT INTO "PushSubscription" ("id", "endpoint", "p256dh", "auth") VALUES (gen_random_uuid(), $1, $2, $3)\n       ON CONFLICT ("endpoint") DO UPDATE SET "p256dh" = EXCLUDED."p256dh", "auth" = EXCLUDED."auth"',
+      subscription.endpoint,
+      subscription.keys.p256dh,
+      subscription.keys.auth
+    );
     return { success: true };
   } catch (error) {
     console.error("Error saving push subscription:", error);
@@ -37,13 +32,18 @@ export async function savePushSubscription(subscription: PushSubscriptionData) {
   }
 }
 
+export type PushPayloadData = Record<string, unknown> | undefined;
+type PushRow = { endpoint: string; p256dh: string; auth: string };
+
 export async function sendPushNotification(
   title: string,
   body: string,
-  data?: any
+  data?: PushPayloadData
 ) {
   try {
-    const subscriptions = await prisma.pushSubscription.findMany();
+    const subscriptions = await prisma.$queryRawUnsafe<PushRow[]>(
+      'SELECT "endpoint", "p256dh", "auth" FROM "PushSubscription"'
+    );
 
     if (subscriptions.length === 0) {
       return { success: false, error: "No push subscriptions found" };
@@ -59,39 +59,45 @@ export async function sendPushNotification(
       silent: true, // Silent notification
     });
 
-    const results = await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: {
-                p256dh: sub.p256dh,
-                auth: sub.auth,
+    const results: PromiseSettledResult<{ success: boolean }>[] =
+      await Promise.allSettled(
+        subscriptions.map(async (sub: PushRow) => {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: {
+                  p256dh: sub.p256dh,
+                  auth: sub.auth,
+                },
               },
-            },
-            payload
-          );
-          return { success: true, endpoint: sub.endpoint };
-        } catch (error) {
-          console.error(
-            "Error sending push to subscription:",
-            sub.endpoint,
-            error
-          );
-          // If subscription is invalid, remove it
-          if (error instanceof Error && error.message.includes("410")) {
-            await prisma.pushSubscription.delete({
-              where: { endpoint: sub.endpoint },
-            });
+              payload
+            );
+            return { success: true, endpoint: sub.endpoint };
+          } catch (error) {
+            console.error(
+              "Error sending push to subscription:",
+              sub.endpoint,
+              error
+            );
+            // If subscription is invalid, remove it
+            if (error instanceof Error && error.message.includes("410")) {
+              await prisma.$executeRawUnsafe(
+                'DELETE FROM "PushSubscription" WHERE "endpoint" = $1',
+                sub.endpoint
+              );
+            }
+            const message =
+              error instanceof Error ? error.message : String(error);
+            return { success: false, endpoint: sub.endpoint, error: message };
           }
-          return { success: false, endpoint: sub.endpoint, error };
-        }
-      })
-    );
+        })
+      );
 
     const successful = results.filter(
-      (r) => r.status === "fulfilled" && r.value.success
+      (r) =>
+        r.status === "fulfilled" &&
+        (r as PromiseFulfilledResult<{ success: boolean }>).value.success
     ).length;
     const failed = results.length - successful;
 
@@ -103,6 +109,7 @@ export async function sendPushNotification(
     };
   } catch (error) {
     console.error("Error sending push notifications:", error);
-    return { success: false, error: "Failed to send push notifications" };
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
   }
 }

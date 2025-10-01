@@ -22,5 +22,5 @@ self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
   // Open the app
-  event.waitUntil(clients.openWindow("/"));
+  event.waitUntil(self.clients.openWindow("/"));
 });
