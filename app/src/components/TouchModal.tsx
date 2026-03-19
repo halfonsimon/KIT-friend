@@ -38,6 +38,17 @@ interface ISpeechRecognition extends EventTarget {
   stop: () => void;
 }
 
+interface SpeechRecognitionConstructor {
+  new (): ISpeechRecognition;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 type Props = {
   contactName: string;
   isOpen: boolean;
@@ -60,8 +71,8 @@ export default function TouchModal({
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setSpeechSupported(!!SpeechRecognitionAPI);
 
     if (SpeechRecognitionAPI) {
@@ -219,7 +230,8 @@ export default function TouchModal({
           )}
 
           <p className="text-xs text-slate-500">
-            AI will extract key topics and update the relationship summary automatically.
+            AI will extract key topics and update the relationship summary
+            automatically.
           </p>
         </div>
 
@@ -272,4 +284,3 @@ export default function TouchModal({
     </div>
   );
 }
-

@@ -8,28 +8,15 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { computeStatus, type ContactLike } from "@/lib/due";
-import { processInteractionNote, type ContactContext } from "@/lib/ai";
+import { computeStatus } from "@/lib/due";
+import { processInteractionNote } from "@/lib/ai";
+import {
+  buildContactContext,
+  stringifyStoredStringArray,
+  toContactLike,
+} from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
-
-function toContactLike(c: {
-  id: string;
-  name: string;
-  phone: string | null;
-  intervalDays: number;
-  createdAt: Date;
-  lastContactedAt: Date | null;
-}): ContactLike {
-  return {
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    intervalDays: c.intervalDays,
-    createdAt: c.createdAt,
-    lastContactedAt: c.lastContactedAt ?? undefined,
-  };
-}
 
 export async function POST(
   req: Request,
@@ -137,32 +124,17 @@ async function processNoteInBackground(
       return;
     }
 
-    const context: ContactContext = {
-      name: contact.name,
-      category: contact.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
-      existingSummary: contact.aiSummary,
-      existingTopics: contact.keyTopics
-        ? JSON.parse(contact.keyTopics)
-        : [],
-      existingFollowUps: contact.followUps
-        ? JSON.parse(contact.followUps)
-        : [],
-      recentInteractions: contact.interactions
-        .filter((i) => i.note)
-        .map((i) => ({
-          note: i.note!,
-          date: i.notedAt,
-        })),
-    };
-
-    const processed = await processInteractionNote(note, context);
+    const processed = await processInteractionNote(
+      note,
+      buildContactContext(contact)
+    );
 
     await prisma.contact.update({
       where: { id: contactId },
       data: {
         aiSummary: processed.summary,
-        keyTopics: JSON.stringify(processed.keyTopics),
-        followUps: JSON.stringify(processed.followUps),
+        keyTopics: stringifyStoredStringArray(processed.keyTopics),
+        followUps: stringifyStoredStringArray(processed.followUps),
       },
     });
 

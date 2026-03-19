@@ -1,170 +1,86 @@
 # KIT Friend
 
-**Keep In Touch** - A lightweight personal CRM to help you maintain meaningful relationships.
+KIT Friend is a Next.js personal CRM for keeping in touch with people on a schedule, sending a daily digest, and storing lightweight AI-assisted relationship memory.
 
-KIT Friend tracks your contacts and reminds you when it's time to reach out. It organizes contacts by category (Family, Friends, Work, Other) with customizable intervals, and sends daily email digests showing who needs your attention.
+## Stack
 
-## Features
-
-- **Contact Management**: Add, edit, and organize contacts with custom reminder intervals
-- **Smart Status Tracking**: Contacts are marked as Overdue, Due Today, or OK based on last contact date
-- **Daily Email Digest**: Automated summary of contacts needing attention
-- **Category Defaults**: Set default intervals per category (e.g., Family every 7 days, Friends every 30 days)
-- **Active/Inactive Toggle**: Temporarily pause reminders for specific contacts
-- **AI Relationship Memory** (NEW): 
-  - Add voice or text notes after each interaction
-  - AI extracts key topics and follow-up items automatically
-  - Category-aware summaries (Family, Friends, Work adapt their focus)
-  - "Before You Call" AI briefings with conversation starters
-
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Database**: PostgreSQL via Prisma ORM (Neon recommended)
-- **Styling**: Tailwind CSS v4
-- **Email**: Nodemailer (Gmail or any SMTP provider)
-- **AI**: OpenAI GPT-4o-mini for relationship insights
-- **Hosting**: Vercel
+- Next.js 15 App Router
+- PostgreSQL + Prisma
+- Tailwind CSS v4
+- Nodemailer for digest email
+- OpenAI for optional AI summaries and briefings
 
 ## Prerequisites
 
-- Node.js 20+
-- PostgreSQL database (Neon, Supabase, or local)
-- SMTP credentials for email (Gmail App Password works well)
+- Node.js 20 (`nvm use` reads the repo's `.nvmrc`)
+- PostgreSQL database
+- SMTP credentials if you want digest email sending
+- OpenAI API key if you want AI memory and briefing features
 
-## Quick Start
-
-### 1. Clone and Install
+## Setup
 
 ```bash
-git clone https://github.com/halfonsimon/KIT-friend.git
-cd KIT-friend/app
+nvm use
 npm install
-```
-
-### 2. Configure Environment
-
-Copy the example environment file and fill in your values:
-
-```bash
 cp .env.example .env
+npx prisma db push
+npm run dev
 ```
 
-Required variables:
+Open [http://localhost:3000](http://localhost:3000).
+
+## Environment Variables
 
 ```env
-# Database (Neon PostgreSQL)
 DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
 
-# OpenAI (for AI relationship memory - optional but recommended)
+# Optional AI features
 OPENAI_API_KEY=sk-your-openai-api-key
 
-# Email Configuration (Gmail example)
+# Required only for digest sending
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 FROM_EMAIL="KIT Friend <your-email@gmail.com>"
 DIGEST_TO=your-email@gmail.com
-
-# Cron Authentication
-CRON_SECRET=your-secret-key
 ```
 
-### 3. Setup Database
+`digestTime` and category defaults are stored in the app settings row in the database, not in environment variables.
 
-```bash
-npx prisma db push    # Development: sync schema
-# or
-npx prisma migrate deploy  # Production: run migrations
-```
+## Main Behavior
 
-### 4. Run Development Server
+- Contacts are due based on `lastContactedAt + intervalDays`, or `createdAt + intervalDays` if they have never been touched.
+- The digest always includes all overdue and due-today contacts, plus a configurable number of upcoming contacts.
+- Marking a contact as touched updates `lastContactedAt` immediately; adding a note also stores an interaction and, when `OPENAI_API_KEY` is present, updates AI summary/topics/follow-ups asynchronously.
+- AI briefing falls back gracefully when OpenAI is not configured.
 
-```bash
-npm run dev
-```
+## API Routes
 
-Visit [http://localhost:3000](http://localhost:3000)
+- `GET /api/contacts`
+  Returns contacts plus computed status fields. Use `?active=1` to filter active contacts only.
+- `POST /api/contacts/:id/touch`
+  Marks the contact as contacted now. Accepts optional JSON body `{ "note": "..." }`.
+- `GET /api/contacts/:id/briefing`
+  Returns AI briefing data when OpenAI is configured, otherwise returns stored summary/topics/follow-ups with `briefing: null`.
+- `GET /api/digest/preview`
+  Preview digest data as JSON without sending mail.
+- `GET|POST /api/digest/send`
+  Sends the digest when SMTP config is present, digest email is enabled in settings, and the current time is within the configured send window.
 
-## Project Structure
-
-```
-app/
-├── prisma/
-│   └── schema.prisma      # Database schema (Contact, Setting, Interaction)
-├── src/
-│   ├── app/
-│   │   ├── (app)/         # Main app routes (contacts, digest, settings)
-│   │   └── api/           # API routes (contacts CRUD, digest send)
-│   ├── components/        # React components (forms, buttons, badges)
-│   └── lib/
-│       ├── db.ts          # Prisma client singleton
-│       ├── due.ts         # Contact status computation logic
-│       ├── digest.ts      # Digest data builder
-│       ├── mailer.ts      # SMTP email transport
-│       ├── settings.ts    # App settings with defaults
-│       └── validation.ts  # Zod schemas for form validation
-```
-
-## Key Concepts
-
-### Contact Status
-
-Each contact has a **due date** calculated as:
-- `lastContactedAt + intervalDays` (or `createdAt + intervalDays` if never contacted)
-
-Status is determined by comparing the due date to today:
-- **Overdue**: Due date is in the past
-- **Today**: Due date is today
-- **OK**: Due date is in the future
-
-### Daily Digest
-
-The digest shows:
-- All **Overdue** contacts (unlimited)
-- All contacts **Due Today** (unlimited)
-- Top N **Upcoming** contacts (configurable in settings)
-
-Triggered via `/api/digest/send` endpoint (protect with `CRON_SECRET`).
-
-### AI Relationship Memory
-
-When you mark a contact as "touched", you can optionally add a note (voice or text) about your conversation. The AI:
-
-1. **Extracts key topics** - "new job", "moving to Paris", "health concerns"
-2. **Identifies follow-ups** - "Ask about the job interview", "Check on the move"
-3. **Generates smart summaries** - Adapts based on category:
-   - **Family**: Focuses on health, personal life, family events
-   - **Friends**: Focuses on life updates, shared interests, plans
-   - **Work**: Focuses on professional topics, opportunities, projects
-
-The "AI Memory" panel on each contact shows this info, plus you can generate a "Before You Call" briefing with conversation starters.
-
-## Deployment (Vercel)
-
-1. Connect your GitHub repo to Vercel
-2. Set environment variables in Vercel project settings
-3. Vercel auto-deploys on push to `main`
-
-### Cron Job for Daily Digest
-
-Use Vercel Cron or an external service to call:
-```
-POST /api/digest/send
-Authorization: Bearer YOUR_CRON_SECRET
-```
+The app does not currently enforce cron authentication itself. If you expose `/api/digest/send`, protect it at the deployment layer.
 
 ## Scripts
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
-npm run test     # Run Vitest tests
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run test
 ```
 
-## License
+## Troubleshooting
 
-MIT
+- If `npm` resolves to a broken Homebrew Node build, run `nvm use` before running project commands.
+- If Prisma types are missing after install, run `npx prisma generate`.

@@ -1,15 +1,19 @@
 // src/app/api/digest/send/route.ts
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { buildDigest } from "@/lib/digest";
 import { renderDigestEmail } from "@/lib/email";
 import { sendDigestSMTP } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const DIGEST_WINDOW_MINUTES = 30;
+
 export async function GET(request: Request) {
-  // réutilise exactement la même logique que POST
   return POST(request);
 }
+
 function recipients(): string[] {
   return (process.env.DIGEST_TO || "")
     .split(",")
@@ -26,17 +30,30 @@ function hasSMTP() {
   );
 }
 
+function isWithinDigestWindow(currentMinutes: number, targetMinutes: number) {
+  const timeDiff = Math.abs(currentMinutes - targetMinutes);
+  return (
+    timeDiff <= DIGEST_WINDOW_MINUTES ||
+    timeDiff >= 24 * 60 - DIGEST_WINDOW_MINUTES
+  );
+}
+
 export async function POST(request: Request) {
   try {
     // Check for test mode parameter
     const url = new URL(request.url);
     const isTest = url.searchParams.get("test") === "true";
 
-    // Check if email digest is enabled
-    const { prisma } = await import("@/lib/db");
-    const settings = await prisma.setting.findFirst();
+    const settings = await prisma.setting.findUnique({
+      where: { id: 1 },
+      select: {
+        sendEmailDigest: true,
+        digestTime: true,
+        lastEmailDigestAt: true,
+      },
+    });
 
-    if (!settings?.sendEmailDigest) {
+    if (settings?.sendEmailDigest === false) {
       return NextResponse.json({
         ok: false,
         error: "Email digest is disabled in settings",
@@ -45,9 +62,7 @@ export async function POST(request: Request) {
     }
 
     // Idempotency: if we already sent a digest today, skip (only for real runs)
-    const lastEmailDigestAt = (
-      settings as unknown as { lastEmailDigestAt?: Date | null }
-    )?.lastEmailDigestAt;
+    const lastEmailDigestAt = settings?.lastEmailDigestAt ?? null;
     if (!isTest && lastEmailDigestAt) {
       const last = new Date(lastEmailDigestAt);
       const nowUtcDay = new Date().toISOString().slice(0, 10);
@@ -70,17 +85,15 @@ export async function POST(request: Request) {
         .getMinutes()
         .toString()
         .padStart(2, "0")}`;
-      const targetTime = settings.digestTime || "06:00";
+      const targetTime = settings?.digestTime ?? "06:00";
 
       // Parse target time
       const [targetHour, targetMinute] = targetTime.split(":").map(Number);
       const targetMinutes = targetHour * 60 + targetMinute;
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-      // Check if we're within 30 minutes of target time (to avoid missing due to cron timing)
-      const timeDiff = Math.abs(currentMinutes - targetMinutes);
-      if (timeDiff > 30 && timeDiff < 24 * 60 - 30) {
-        // Not within 10 minutes, and not crossing midnight
+      // Allow a 30-minute window so schedulers do not need minute-perfect timing.
+      if (!isWithinDigestWindow(currentMinutes, targetMinutes)) {
         return NextResponse.json({
           ok: false,
           error: `Not time to send digest yet. Current: ${currentTime}, Target: ${targetTime}`,
@@ -124,10 +137,11 @@ export async function POST(request: Request) {
 
     // Mark as sent now (idempotency for the day)
     if (!isTest) {
-      // Use raw SQL to avoid type mismatch during rollout when Prisma types may lag
-      await prisma.$executeRawUnsafe(
-        'UPDATE "Setting" SET "lastEmailDigestAt" = NOW() WHERE "id" = 1'
-      );
+      await prisma.setting.upsert({
+        where: { id: 1 },
+        create: { id: 1, lastEmailDigestAt: new Date() },
+        update: { lastEmailDigestAt: new Date() },
+      });
     }
 
     return NextResponse.json({

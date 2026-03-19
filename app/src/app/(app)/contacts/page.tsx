@@ -1,17 +1,19 @@
 // Server component: fetch contacts directly from database
 export const dynamic = "force-dynamic";
+import Link from "next/link";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import TouchButton from "@/components/TouchButton";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteContact } from "./actions";
 import { prisma } from "@/lib/db";
-import { computeStatus, type ContactLike } from "@/lib/due";
+import { type Category, toContactLike } from "@/lib/contact";
+import { computeStatus } from "@/lib/due";
 
 type ContactRow = {
   id: string;
   name: string;
-  category: "FAMILY" | "FRIEND" | "WORK" | "OTHER";
+  category: Category;
   status: "overdue" | "today" | "ok";
   daysUntilDue: number;
   nextDueAt: Date;
@@ -25,21 +27,11 @@ async function getContacts(): Promise<ContactRow[]> {
 
   const now = new Date();
   const rows = contacts.map((c) => {
-    const computed = computeStatus(
-      {
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        intervalDays: c.intervalDays,
-        createdAt: c.createdAt,
-        lastContactedAt: c.lastContactedAt ?? undefined,
-      } as ContactLike,
-      now
-    );
+    const computed = computeStatus(toContactLike(c), now);
     return {
       id: c.id,
       name: c.name,
-      category: c.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
+      category: c.category,
       status: computed.status,
       daysUntilDue: computed.daysUntilDue,
       nextDueAt: computed.nextDueAt,
@@ -74,7 +66,7 @@ export default async function ContactsPage() {
             Manage your contacts and track when to reach out next
           </p>
         </div>
-        <a
+        <Link
           href="/contacts/new"
           className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-[1.02]"
         >
@@ -92,7 +84,7 @@ export default async function ContactsPage() {
             />
           </svg>
           New Contact
-        </a>
+        </Link>
       </div>
 
       {rows.length === 0 ? (
@@ -118,12 +110,12 @@ export default async function ContactsPage() {
           <p className="text-slate-600 mb-6">
             Get started by adding your first contact
           </p>
-          <a
+          <Link
             href="/contacts/new"
             className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
           >
             Add Contact
-          </a>
+          </Link>
         </div>
       ) : (
         <>
@@ -264,7 +256,7 @@ export default async function ContactsPage() {
 
                   <div className="flex items-center gap-2">
                     <TouchButton id={r.id} name={r.name} disabled={r.status === "today"} />
-                    <a
+                    <Link
                       href={`/contacts/${r.id}/edit`}
                       className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors"
                     >
@@ -282,7 +274,7 @@ export default async function ContactsPage() {
                         />
                       </svg>
                       Edit
-                    </a>
+                    </Link>
                     <DeleteButton
                       contactId={r.id}
                       contactName={r.name}

@@ -6,6 +6,8 @@ import ContactForm from "@/components/forms/ContactForm";
 import ContactBriefing from "@/components/ContactBriefing";
 import { notFound } from "next/navigation";
 import { updateContact } from "../../actions";
+import { getSettings } from "@/lib/settings";
+import { readStoredAiMemory, type Category } from "@/lib/contact";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,11 +18,8 @@ export default async function EditContactPage({ params }: Params) {
   });
   if (!c) notFound();
 
-  const settings = await prisma.setting.findFirst();
-
-  // Parse AI data
-  const keyTopics = c.keyTopics ? JSON.parse(c.keyTopics) : [];
-  const followUps = c.followUps ? JSON.parse(c.followUps) : [];
+  const settings = await getSettings();
+  const aiMemory = readStoredAiMemory(c);
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -35,9 +34,9 @@ export default async function EditContactPage({ params }: Params) {
       <ContactBriefing
         contactId={c.id}
         contactName={c.name}
-        aiSummary={c.aiSummary}
-        keyTopics={keyTopics}
-        followUps={followUps}
+        aiSummary={aiMemory.aiSummary}
+        keyTopics={aiMemory.keyTopics}
+        followUps={aiMemory.followUps}
       />
 
       <ContactForm
@@ -45,16 +44,16 @@ export default async function EditContactPage({ params }: Params) {
         submitLabel="Save Changes"
         showActiveToggle={true}
         categoryDefaults={{
-          FAMILY: settings?.defaultFamilyDays ?? 7,
-          FRIEND: settings?.defaultFriendDays ?? 30,
-          WORK: settings?.defaultWorkDays ?? 14,
-          OTHER: settings?.defaultOtherDays ?? 21,
+          FAMILY: settings.defaultsByCategory.FAMILY,
+          FRIEND: settings.defaultsByCategory.FRIEND,
+          WORK: settings.defaultsByCategory.WORK,
+          OTHER: settings.defaultsByCategory.OTHER,
         }}
         initialValues={{
           id: c.id,
           name: c.name,
           phone: c.phone,
-          category: c.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
+          category: c.category as Category,
           intervalDays: c.intervalDays,
           isActive: c.isActive,
         }}

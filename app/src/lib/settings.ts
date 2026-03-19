@@ -4,8 +4,7 @@
  * Falls back to sensible defaults if no settings exist.
  */
 import { prisma } from "@/lib/db";
-
-export type Category = "FAMILY" | "FRIEND" | "WORK" | "OTHER";
+import type { Category } from "@/lib/contact";
 
 const FALLBACK = {
   upcomingCount: 2,

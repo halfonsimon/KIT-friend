@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Logo from "@/components/Logo";
 
 export default function Home() {
@@ -25,7 +26,7 @@ export default function Home() {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-          <a
+          <Link
             href="/contacts"
             className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-[1.02]"
           >
@@ -43,8 +44,8 @@ export default function Home() {
               />
             </svg>
             View Contacts
-          </a>
-          <a
+          </Link>
+          <Link
             href="/digest"
             className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white text-slate-700 font-medium border border-slate-200 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all duration-200"
           >
@@ -62,7 +63,7 @@ export default function Home() {
               />
             </svg>
             Daily Digest
-          </a>
+          </Link>
         </div>
 
         {/* Features */}

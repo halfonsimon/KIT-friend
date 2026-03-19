@@ -3,10 +3,11 @@ export const dynamic = "force-dynamic";
 
 import ContactForm from "@/components/forms/ContactForm";
 import { createContact } from "../actions";
-import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
+import { DEFAULT_CATEGORY } from "@/lib/contact";
 
 export default async function NewContactPage() {
-  const settings = await prisma.setting.findFirst();
+  const settings = await getSettings();
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
@@ -20,14 +21,14 @@ export default async function NewContactPage() {
         action={createContact}
         submitLabel="Create Contact"
         initialValues={{
-          category: "FRIEND",
+          category: DEFAULT_CATEGORY,
           isActive: true,
         }}
         categoryDefaults={{
-          FAMILY: settings?.defaultFamilyDays ?? 7,
-          FRIEND: settings?.defaultFriendDays ?? 30,
-          WORK: settings?.defaultWorkDays ?? 14,
-          OTHER: settings?.defaultOtherDays ?? 21,
+          FAMILY: settings.defaultsByCategory.FAMILY,
+          FRIEND: settings.defaultsByCategory.FRIEND,
+          WORK: settings.defaultsByCategory.WORK,
+          OTHER: settings.defaultsByCategory.OTHER,
         }}
         showActiveToggle={true}
       />

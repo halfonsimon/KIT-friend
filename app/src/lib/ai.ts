@@ -3,12 +3,7 @@
  * Uses OpenAI to extract insights and maintain smart contact summaries.
  */
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export type Category = "FAMILY" | "FRIEND" | "WORK" | "OTHER";
+import type { Category, ContactContext } from "./contact";
 
 export type ProcessedNote = {
   keyTopics: string[];
@@ -16,14 +11,14 @@ export type ProcessedNote = {
   summary: string;
 };
 
-export type ContactContext = {
-  name: string;
-  category: Category;
-  existingSummary: string | null;
-  existingTopics: string[];
-  existingFollowUps: string[];
-  recentInteractions: { note: string; date: Date }[];
-};
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured.");
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 /**
  * Get category-specific instructions for the AI summary style.
@@ -110,6 +105,7 @@ Respond in this exact JSON format:
 }`;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
@@ -177,6 +173,7 @@ Generate a brief, helpful briefing (3-5 lines) that includes:
 Keep it conversational and helpful, like a personal assistant reminding you before a call.`;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],

@@ -95,7 +95,8 @@ export default async function SettingsPage() {
                     Time when the daily digest will be sent (24-hour format)
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    (UTC, so -3 IS summer and -2 IS winter)
+                    Keep your scheduler aligned with this time in your deploy
+                    environment.
                   </p>
                 </div>
               </div>

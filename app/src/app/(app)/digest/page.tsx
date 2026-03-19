@@ -1,5 +1,6 @@
 // src/app/digest/page.tsx
 import { buildDigest } from "@/lib/digest";
+import type { Category } from "@/lib/contact";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import SendDigestButton from "./SendDigestButton";
@@ -16,7 +17,7 @@ function Section({
   items: {
     id: string;
     name: string;
-    category: string;
+    category: Category;
     status: "overdue" | "today" | "ok";
     daysUntilDue: number;
     nextDueAt: Date;

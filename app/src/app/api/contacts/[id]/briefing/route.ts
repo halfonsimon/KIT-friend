@@ -7,8 +7,9 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateBriefing, type ContactContext } from "@/lib/ai";
+import { generateBriefing } from "@/lib/ai";
 import { computeStatus, type ContactLike } from "@/lib/due";
+import { buildContactContext, readStoredAiMemory } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
 
@@ -45,14 +46,16 @@ export async function GET(
     }
 
     // Check if OpenAI is configured
+    const aiMemory = readStoredAiMemory(contact);
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({
         ok: true,
         data: {
           briefing: null,
-          summary: contact.aiSummary,
-          keyTopics: contact.keyTopics ? JSON.parse(contact.keyTopics) : [],
-          followUps: contact.followUps ? JSON.parse(contact.followUps) : [],
+          summary: aiMemory.aiSummary,
+          keyTopics: aiMemory.keyTopics,
+          followUps: aiMemory.followUps,
           message: "AI briefing not available - OPENAI_API_KEY not configured",
         },
       });
@@ -76,29 +79,18 @@ export async function GET(
           (Date.now() - contact.createdAt.getTime()) / (1000 * 60 * 60 * 24)
         );
 
-    const context: ContactContext = {
-      name: contact.name,
-      category: contact.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
-      existingSummary: contact.aiSummary,
-      existingTopics: contact.keyTopics ? JSON.parse(contact.keyTopics) : [],
-      existingFollowUps: contact.followUps ? JSON.parse(contact.followUps) : [],
-      recentInteractions: contact.interactions
-        .filter((i) => i.note)
-        .map((i) => ({
-          note: i.note!,
-          date: i.notedAt,
-        })),
-    };
-
-    const briefing = await generateBriefing(context, daysSinceContact);
+    const briefing = await generateBriefing(
+      buildContactContext(contact),
+      daysSinceContact
+    );
 
     return NextResponse.json({
       ok: true,
       data: {
         briefing,
-        summary: contact.aiSummary,
-        keyTopics: contact.keyTopics ? JSON.parse(contact.keyTopics) : [],
-        followUps: contact.followUps ? JSON.parse(contact.followUps) : [],
+        summary: aiMemory.aiSummary,
+        keyTopics: aiMemory.keyTopics,
+        followUps: aiMemory.followUps,
         daysSinceContact,
         status: status.status,
       },

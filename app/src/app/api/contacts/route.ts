@@ -1,27 +1,10 @@
 // src/app/api/contacts/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { computeStatus, type ContactLike } from "@/lib/due";
-export const dynamic = "force-dynamic"; // always run on server, no caching
+import { toContactLike } from "@/lib/contact";
+import { computeStatus } from "@/lib/due";
 
-// Map Prisma Contact to ContactLike that our due logic expects
-function toContactLike(c: {
-  id: string;
-  name: string;
-  phone: string | null;
-  intervalDays: number;
-  createdAt: Date;
-  lastContactedAt: Date | null;
-}): ContactLike {
-  return {
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    intervalDays: c.intervalDays,
-    createdAt: c.createdAt,
-    lastContactedAt: c.lastContactedAt ?? undefined,
-  };
-}
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {

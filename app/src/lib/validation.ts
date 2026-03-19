@@ -2,9 +2,10 @@
 // Reusable Zod schemas for contact forms (create/edit)
 
 import { z } from "zod";
+import { CATEGORY_VALUES } from "@/lib/contact";
 
 // Mirror our Prisma enums
-export const CategoryEnum = z.enum(["FAMILY", "FRIEND", "WORK", "OTHER"]);
+export const CategoryEnum = z.enum(CATEGORY_VALUES);
 
 // Coercions:
 // - intervalDays: accept string input (from <input type="number">) and coerce to number

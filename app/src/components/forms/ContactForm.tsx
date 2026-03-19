@@ -1,14 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import type { ActionState } from "@/app/(app)/contacts/actions";
+import { DEFAULT_CATEGORY, type Category } from "@/lib/contact";
 import { CategoryEnum } from "@/lib/validation";
 
 type InitialValues = {
   id?: string;
   name?: string;
   phone?: string | null;
-  category?: "FAMILY" | "FRIEND" | "WORK" | "OTHER";
+  category?: Category;
   intervalDays?: number;
   isActive?: boolean;
 };
@@ -39,15 +41,15 @@ export default function ContactForm({
   });
 
   // Track selected category for dynamic placeholder
-  const [selectedCategory, setSelectedCategory] = useState<
-    "FAMILY" | "FRIEND" | "WORK" | "OTHER"
-  >(initialValues?.category ?? "FRIEND");
+  const [selectedCategory, setSelectedCategory] = useState<Category>(
+    initialValues?.category ?? DEFAULT_CATEGORY
+  );
 
   const v = {
     id: initialValues?.id ?? "",
     name: initialValues?.name ?? "",
     phone: initialValues?.phone ?? "",
-    category: initialValues?.category ?? "FRIEND",
+    category: initialValues?.category ?? DEFAULT_CATEGORY,
     intervalDays: initialValues?.intervalDays, // Can be undefined for dynamic defaults
     isActive: initialValues?.isActive ?? true,
   };
@@ -123,7 +125,7 @@ export default function ContactForm({
                 defaultValue={v.category}
                 onChange={(e) =>
                   setSelectedCategory(
-                    e.target.value as "FAMILY" | "FRIEND" | "WORK" | "OTHER"
+                    e.target.value as Category
                   )
                 }
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
@@ -219,12 +221,12 @@ export default function ContactForm({
           )}
 
           <div className="flex items-center justify-between pt-6 border-t border-slate-200">
-            <a
+            <Link
               href="/contacts"
               className="text-sm text-slate-600 hover:text-slate-800 font-medium transition-colors"
             >
               ← Back to contacts
-            </a>
+            </Link>
             <button
               type="submit"
               className="inline-flex items-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-[1.02]"

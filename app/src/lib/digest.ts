@@ -3,8 +3,8 @@
 
 import { prisma } from "./db";
 import { computeStatus, type ContactLike } from "./due";
+import type { Category } from "./contact";
 
-export type Category = "FAMILY" | "FRIEND" | "WORK" | "OTHER";
 export type Status = "overdue" | "today" | "ok";
 
 export type DigestItem = {
