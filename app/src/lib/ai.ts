@@ -106,7 +106,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 
   try {
     const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-05-20" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
