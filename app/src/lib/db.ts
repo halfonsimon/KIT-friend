@@ -1,9 +1,12 @@
-// src/lib/db.ts
+/**
+ * Prisma client singleton.
+ * In development, we store the client on globalThis to prevent
+ * creating multiple instances during Hot Module Replacement (HMR).
+ * In production, a single instance is created and reused.
+ */
 import { PrismaClient } from "@prisma/client";
 
-// Avoid creating many PrismaClient instances in dev (HMR)
 declare global {
-  /// eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 

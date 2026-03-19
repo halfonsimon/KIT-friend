@@ -1,4 +1,8 @@
-// src/lib/settings.ts
+/**
+ * Application settings management.
+ * Settings are stored as a singleton row in the database (id=1).
+ * Falls back to sensible defaults if no settings exist.
+ */
 import { prisma } from "@/lib/db";
 
 export type Category = "FAMILY" | "FRIEND" | "WORK" | "OTHER";

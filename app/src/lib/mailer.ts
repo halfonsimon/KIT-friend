@@ -1,3 +1,7 @@
+/**
+ * SMTP email transport for sending digest emails.
+ * Uses nodemailer with configuration from environment variables.
+ */
 import nodemailer from "nodemailer";
 
 type SMTPConfig = {
@@ -8,6 +12,10 @@ type SMTPConfig = {
   from: string;
 };
 
+/**
+ * Read SMTP configuration from environment variables.
+ * Throws if any required variable is missing.
+ */
 function readSMTP(): SMTPConfig {
   const host = process.env.SMTP_HOST || "";
   const port = Number(process.env.SMTP_PORT || "587");
@@ -23,6 +31,13 @@ function readSMTP(): SMTPConfig {
   return { host, port, user, pass, from };
 }
 
+/**
+ * Send the daily digest email via SMTP.
+ * @param to - Array of recipient email addresses
+ * @param subject - Email subject line
+ * @param html - HTML content of the email
+ * @returns Object with messageId, accepted, and rejected addresses
+ */
 export async function sendDigestSMTP(
   to: string[],
   subject: string,

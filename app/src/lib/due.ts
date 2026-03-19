@@ -1,4 +1,12 @@
-// src/lib/due.ts
+/**
+ * Contact due date computation logic.
+ * 
+ * This module calculates when a contact is "due" for follow-up based on:
+ * - The last time you contacted them (or their creation date if never contacted)
+ * - Their configured interval in days
+ * 
+ * All date calculations use UTC to avoid timezone/DST issues.
+ */
 
 export type ContactLike = {
   id: string;
