@@ -3,7 +3,6 @@ import { buildDigest } from "@/lib/digest";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import SendDigestButton from "./SendDigestButton";
-import PushNotificationButton from "@/components/PushNotificationButton";
 
 export const dynamic = "force-dynamic"; // always fresh
 
@@ -198,11 +197,6 @@ export default async function DigestPage() {
           </p>
         </div>
       )}
-
-      {/* Push notifications setup */}
-      <div className="mb-6">
-        <PushNotificationButton />
-      </div>
 
       {/* Send digest button */}
       <div className="text-center">

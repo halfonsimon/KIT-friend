@@ -12,7 +12,6 @@ const FALLBACK = {
     OTHER: 21,
   } as Record<Category, number>,
   sendEmailDigest: true,
-  sendWhatsappDigest: false,
   digestTime: "06:00",
 };
 
@@ -42,7 +41,6 @@ export async function getSettings(): Promise<AppSettings> {
       ),
     },
     sendEmailDigest: !!row.sendEmailDigest,
-    sendWhatsappDigest: !!row.sendWhatsappDigest,
     digestTime: row.digestTime ?? FALLBACK.digestTime,
   };
 }

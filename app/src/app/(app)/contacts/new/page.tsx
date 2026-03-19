@@ -1,4 +1,6 @@
 // src/app/contacts/new/page.tsx
+export const dynamic = "force-dynamic";
+
 import ContactForm from "@/components/forms/ContactForm";
 import { createContact } from "../actions";
 import { prisma } from "@/lib/db";

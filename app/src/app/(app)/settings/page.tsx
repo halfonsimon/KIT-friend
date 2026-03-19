@@ -60,47 +60,24 @@ export default async function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex items-start space-x-3 p-4 bg-slate-50 rounded-lg flex-1">
-                    <input
-                      id="sendEmailDigest"
-                      type="checkbox"
-                      name="sendEmailDigest"
-                      defaultChecked={s.sendEmailDigest}
-                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-2 mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor="sendEmailDigest"
-                        className="text-sm font-medium text-slate-900"
-                      >
-                        Email Digest
-                      </label>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Receive daily digest via email
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3 p-4 bg-slate-50 rounded-lg flex-1">
-                    <input
-                      id="sendWhatsappDigest"
-                      type="checkbox"
-                      name="sendWhatsappDigest"
-                      defaultChecked={s.sendWhatsappDigest}
-                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-2 mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor="sendWhatsappDigest"
-                        className="text-sm font-medium text-slate-900"
-                      >
-                        WhatsApp Digest
-                      </label>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Receive daily digest via WhatsApp
-                      </p>
-                    </div>
+                <div className="flex items-start space-x-3 p-4 bg-slate-50 rounded-lg">
+                  <input
+                    id="sendEmailDigest"
+                    type="checkbox"
+                    name="sendEmailDigest"
+                    defaultChecked={s.sendEmailDigest}
+                    className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-2 mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor="sendEmailDigest"
+                      className="text-sm font-medium text-slate-900"
+                    >
+                      Email Digest
+                    </label>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Receive daily digest via email
+                    </p>
                   </div>
                 </div>
 

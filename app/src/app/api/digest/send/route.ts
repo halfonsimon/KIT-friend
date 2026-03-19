@@ -3,11 +3,9 @@ import { NextResponse } from "next/server";
 import { buildDigest } from "@/lib/digest";
 import { renderDigestEmail } from "@/lib/email";
 import { sendDigestSMTP } from "@/lib/mailer";
-import { sendPushNotification } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// src/app/api/digest/send/route.ts
 export async function GET(request: Request) {
   // réutilise exactement la même logique que POST
   return POST(request);
@@ -124,17 +122,6 @@ export async function POST(request: Request) {
 
     const result = await sendDigestSMTP(to, subject, html);
 
-    // Send push notification
-    const pushResult = await sendPushNotification(
-      "Kit Friend Digest",
-      `You have ${data.stats.overdue} overdue, ${data.stats.today} due today, ${data.stats.upcoming} upcoming contacts`,
-      {
-        type: "digest",
-        stats: data.stats,
-        isTest,
-      }
-    );
-
     // Mark as sent now (idempotency for the day)
     if (!isTest) {
       // Use raw SQL to avoid type mismatch during rollout when Prisma types may lag
@@ -150,7 +137,6 @@ export async function POST(request: Request) {
       accepted: result.accepted,
       rejected: result.rejected,
       stats: data.stats,
-      push: pushResult,
     });
   } catch (err) {
     console.error("digest send error:", err);

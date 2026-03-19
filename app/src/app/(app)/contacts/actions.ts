@@ -5,6 +5,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { getSettings, defaultIntervalFor } from "@/lib/settings";
 import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -57,26 +58,8 @@ export async function createContact(
     const input = readForm(formData);
 
     // If intervalDays is not provided, use category default
-    let intervalDays = input.intervalDays;
-    if (intervalDays === undefined) {
-      const settings = await prisma.setting.findFirst();
-      switch (input.category) {
-        case "FAMILY":
-          intervalDays = settings?.defaultFamilyDays ?? 7;
-          break;
-        case "FRIEND":
-          intervalDays = settings?.defaultFriendDays ?? 30;
-          break;
-        case "WORK":
-          intervalDays = settings?.defaultWorkDays ?? 14;
-          break;
-        case "OTHER":
-          intervalDays = settings?.defaultOtherDays ?? 21;
-          break;
-        default:
-          intervalDays = 30;
-      }
-    }
+    const settings = await getSettings();
+    const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
     await prisma.contact.create({
       data: {
@@ -125,26 +108,8 @@ export async function updateContact(
     const input = readForm(formData);
 
     // If intervalDays is not provided, use category default
-    let intervalDays = input.intervalDays;
-    if (intervalDays === undefined) {
-      const settings = await prisma.setting.findFirst();
-      switch (input.category) {
-        case "FAMILY":
-          intervalDays = settings?.defaultFamilyDays ?? 7;
-          break;
-        case "FRIEND":
-          intervalDays = settings?.defaultFriendDays ?? 30;
-          break;
-        case "WORK":
-          intervalDays = settings?.defaultWorkDays ?? 14;
-          break;
-        case "OTHER":
-          intervalDays = settings?.defaultOtherDays ?? 21;
-          break;
-        default:
-          intervalDays = 30;
-      }
-    }
+    const settings = await getSettings();
+    const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
     await prisma.contact.update({
       where: { id },

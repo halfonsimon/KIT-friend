@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kit Friend
 
-## Getting Started
+Lightweight contacts CRM with daily email digest. Built on Next.js App Router + Prisma/Postgres, deployed on Vercel.
 
-First, run the development server:
+## Prerequisites
+- Node 20+
+- Postgres database (set `DATABASE_URL`)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Environment
+Create `.env.local` with:
+```
+DATABASE_URL=postgres://user:pass@host:5432/db
+DIGEST_TO=you@example.com          # comma separated list
+SMTP_HOST=smtp.yourprovider.com
+SMTP_PORT=587                      # 465 for SSL
+SMTP_USER=apikey-or-username
+SMTP_PASS=secret
+FROM_EMAIL="Kit Friend <no-reply@yourdomain.com>"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Develop
+```bash
+npm install
+npm run dev
+```
+Visit http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
+```bash
+npx prisma migrate dev
+# or in CI/Prod: npx prisma migrate deploy
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tests
+```bash
+npm test
+npm run lint
+```
 
-## Learn More
+## Deploy (Vercel)
+- Set the env vars above in Vercel project settings.
+- Ensure a Postgres add-on/connection is configured.
+- Vercel will run `npm run build` and `prisma migrate deploy` on deploy.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+- Email digest is the only notification channel.
+- Push/WhatsApp functionality and VAPID keys are removed to keep the surface minimal.
