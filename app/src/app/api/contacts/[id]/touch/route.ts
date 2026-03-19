@@ -119,8 +119,8 @@ async function processNoteInBackground(
 ) {
   try {
     // Skip AI processing if no API key configured
-    if (!process.env.OPENAI_API_KEY) {
-      console.log("Skipping AI processing - OPENAI_API_KEY not configured");
+    if (!process.env.GEMINI_API_KEY) {
+      console.log("Skipping AI processing - GEMINI_API_KEY not configured");
       return;
     }
 

@@ -1,6 +1,7 @@
 {
-  "name": "web",
-  "version": "0.1.0",
+  "name": "kit-friend",
+  "version": "1.0.0",
+  "description": "Keep in Touch - A personal CRM to maintain meaningful relationships",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,10 +11,10 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.16.1",
     "next": "^15.5.7",
     "nodemailer": "^7.0.6",
-    "openai": "^6.32.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^4.1.9"

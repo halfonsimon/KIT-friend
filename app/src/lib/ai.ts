@@ -1,8 +1,8 @@
 /**
  * AI utilities for processing interaction notes and generating relationship summaries.
- * Uses OpenAI to extract insights and maintain smart contact summaries.
+ * Uses Google Gemini to extract insights and maintain smart contact summaries.
  */
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Category, ContactContext } from "./contact";
 
 export type ProcessedNote = {
@@ -11,13 +11,13 @@ export type ProcessedNote = {
   summary: string;
 };
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured.");
+    throw new Error("GEMINI_API_KEY is not configured.");
   }
 
-  return new OpenAI({ apiKey });
+  return new GoogleGenerativeAI(apiKey);
 }
 
 /**
@@ -58,16 +58,16 @@ Keep the tone professional but personable.`;
 }
 
 /**
- * Process a new interaction note and generate updated summary, topics, and follow-ups.
+ * Process a new interaction note and generate updated summary, topics, and questions to ask.
  */
 export async function processInteractionNote(
   newNote: string,
-  context: ContactContext
+  context: ContactContext,
 ): Promise<ProcessedNote> {
   const categoryInstructions = getCategoryInstructions(context.category);
 
   const existingContext = context.existingSummary
-    ? `Current summary: ${context.existingSummary}\nExisting topics: ${context.existingTopics.join(", ")}\nPending follow-ups: ${context.existingFollowUps.join(", ")}`
+    ? `Current summary: ${context.existingSummary}\nExisting topics: ${context.existingTopics.join(", ")}\nPending questions: ${context.existingFollowUps.join(", ")}`
     : "No existing summary yet.";
 
   const recentHistory = context.recentInteractions
@@ -93,33 +93,31 @@ Based on this new information, provide:
 
 1. KEY_TOPICS: Extract 3-5 important topics/themes about this person (combine with existing, remove outdated). Format as JSON array of strings.
 
-2. FOLLOW_UPS: What should the user ask about or follow up on next time? (1-3 items, prioritize most recent/important). Format as JSON array of strings.
+2. QUESTIONS: What questions should the user ask next time they talk? (2-3 natural conversation questions based on recent topics). Format as JSON array of strings.
 
-3. SUMMARY: Write a concise summary (2-4 sentences) of what's important to know about this person right now. Merge new info with existing, remove outdated info. Write in third person about the contact.
+3. SUMMARY: Write a concise summary (2-3 sentences) of what's important to know about this person right now. Merge new info with existing, remove outdated info. Write in third person about the contact.
 
-Respond in this exact JSON format:
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {
   "keyTopics": ["topic1", "topic2", "topic3"],
-  "followUps": ["follow up item 1", "follow up item 2"],
+  "followUps": ["question 1?", "question 2?"],
   "summary": "The summary text here."
 }`;
 
   try {
-    const openai = getOpenAIClient();
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
-    });
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-05-20" });
 
-    const content = completion.choices[0]?.message?.content;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const content = response.text();
+
     if (!content) {
       throw new Error("No response from AI");
     }
 
-    const parsed = JSON.parse(content) as ProcessedNote;
+    const cleanedContent = content.replace(/```json\n?|\n?```/g, "").trim();
+    const parsed = JSON.parse(cleanedContent) as ProcessedNote;
 
     return {
       keyTopics: Array.isArray(parsed.keyTopics) ? parsed.keyTopics : [],
@@ -133,57 +131,5 @@ Respond in this exact JSON format:
       followUps: context.existingFollowUps,
       summary: context.existingSummary || "",
     };
-  }
-}
-
-/**
- * Generate a quick briefing for a contact before reaching out.
- */
-export async function generateBriefing(
-  context: ContactContext,
-  daysSinceContact: number
-): Promise<string> {
-  const categoryInstructions = getCategoryInstructions(context.category);
-
-  const recentHistory = context.recentInteractions
-    .slice(0, 5)
-    .map((i) => `- ${i.date.toLocaleDateString()}: ${i.note}`)
-    .join("\n");
-
-  const prompt = `You are a personal assistant preparing a quick briefing before someone reaches out to a contact.
-
-Contact: ${context.name}
-Category: ${context.category}
-Days since last contact: ${daysSinceContact}
-
-${categoryInstructions}
-
-Current summary: ${context.existingSummary || "No summary available."}
-Key topics: ${context.existingTopics.join(", ") || "None recorded."}
-Things to follow up on: ${context.existingFollowUps.join(", ") || "None."}
-
-Recent interactions:
-${recentHistory || "No recorded interactions."}
-
-Generate a brief, helpful briefing (3-5 lines) that includes:
-1. A quick reminder of who this person is and what matters to them
-2. What to follow up on or ask about
-3. A suggested opening line
-
-Keep it conversational and helpful, like a personal assistant reminding you before a call.`;
-
-  try {
-    const openai = getOpenAIClient();
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 300,
-    });
-
-    return completion.choices[0]?.message?.content || "No briefing available.";
-  } catch (error) {
-    console.error("AI briefing error:", error);
-    return "Unable to generate briefing at this time.";
   }
 }

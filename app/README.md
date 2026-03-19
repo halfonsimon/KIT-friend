@@ -1,6 +1,6 @@
 # KIT Friend
 
-KIT Friend is a Next.js personal CRM for keeping in touch with people on a schedule, sending a daily digest, and storing lightweight AI-assisted relationship memory.
+A personal CRM for keeping in touch with people on a schedule, with AI-powered relationship memory.
 
 ## Stack
 
@@ -8,14 +8,14 @@ KIT Friend is a Next.js personal CRM for keeping in touch with people on a sched
 - PostgreSQL + Prisma
 - Tailwind CSS v4
 - Nodemailer for digest email
-- OpenAI for optional AI summaries and briefings
+- Google Gemini for AI summaries
 
 ## Prerequisites
 
-- Node.js 20 (`nvm use` reads the repo's `.nvmrc`)
-- PostgreSQL database
-- SMTP credentials if you want digest email sending
-- OpenAI API key if you want AI memory and briefing features
+- Node.js 20 (`nvm use` reads `.nvmrc`)
+- PostgreSQL database (e.g., Neon)
+- SMTP credentials for digest emails (optional)
+- Gemini API key for AI features (optional)
 
 ## Setup
 
@@ -23,6 +23,7 @@ KIT Friend is a Next.js personal CRM for keeping in touch with people on a sched
 nvm use
 npm install
 cp .env.example .env
+# Edit .env with your database URL and API keys
 npx prisma db push
 npm run dev
 ```
@@ -34,10 +35,10 @@ Open [http://localhost:3000](http://localhost:3000).
 ```env
 DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
 
-# Optional AI features
-OPENAI_API_KEY=sk-your-openai-api-key
+# Optional - AI-powered relationship memory
+GEMINI_API_KEY=your-gemini-api-key
 
-# Required only for digest sending
+# Optional - Daily digest email
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -46,41 +47,34 @@ FROM_EMAIL="KIT Friend <your-email@gmail.com>"
 DIGEST_TO=your-email@gmail.com
 ```
 
-`digestTime` and category defaults are stored in the app settings row in the database, not in environment variables.
+## Features
 
-## Main Behavior
+- **Contact Management**: Track contacts with custom reminder intervals
+- **Status Tracking**: See who's overdue, due today, or upcoming
+- **AI Memory**: Automatically extracts key topics and suggested questions from your notes
+- **Daily Digest**: Email summary of who to contact today
+- **Categories**: Family, Friends, Work, Other - each with customizable defaults
 
-- Contacts are due based on `lastContactedAt + intervalDays`, or `createdAt + intervalDays` if they have never been touched.
-- The digest always includes all overdue and due-today contacts, plus a configurable number of upcoming contacts.
-- Marking a contact as touched updates `lastContactedAt` immediately; adding a note also stores an interaction and, when `OPENAI_API_KEY` is present, updates AI summary/topics/follow-ups asynchronously.
-- AI briefing falls back gracefully when OpenAI is not configured.
+## How It Works
+
+1. Add contacts with reminder intervals (e.g., "call Mom every 7 days")
+2. When you touch base, add a note about what you discussed
+3. AI extracts key topics and suggests questions for next time
+4. Get a daily digest of who to reach out to
 
 ## API Routes
 
-- `GET /api/contacts`
-  Returns contacts plus computed status fields. Use `?active=1` to filter active contacts only.
-- `POST /api/contacts/:id/touch`
-  Marks the contact as contacted now. Accepts optional JSON body `{ "note": "..." }`.
-- `GET /api/contacts/:id/briefing`
-  Returns AI briefing data when OpenAI is configured, otherwise returns stored summary/topics/follow-ups with `briefing: null`.
-- `GET /api/digest/preview`
-  Preview digest data as JSON without sending mail.
-- `GET|POST /api/digest/send`
-  Sends the digest when SMTP config is present, digest email is enabled in settings, and the current time is within the configured send window.
-
-The app does not currently enforce cron authentication itself. If you expose `/api/digest/send`, protect it at the deployment layer.
+- `GET /api/contacts` - List contacts with status
+- `POST /api/contacts/:id/touch` - Mark contact as reached, optionally with note
+- `GET /api/digest/preview` - Preview digest data
+- `POST /api/digest/send` - Send digest email
 
 ## Scripts
 
 ```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-npm run test
+npm run dev      # Development server
+npm run build    # Production build
+npm run start    # Production server
+npm run lint     # ESLint
+npm run test     # Vitest
 ```
-
-## Troubleshooting
-
-- If `npm` resolves to a broken Homebrew Node build, run `nvm use` before running project commands.
-- If Prisma types are missing after install, run `npx prisma generate`.

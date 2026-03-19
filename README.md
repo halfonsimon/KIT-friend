@@ -1,15 +1,14 @@
 # KIT Friend
 
-Keep In Touch is a lightweight personal CRM for tracking when to reach out to friends, family, and work contacts.
+**Keep In Touch** - A personal CRM for maintaining meaningful relationships with friends, family, and colleagues.
 
-The actual application lives in [`app/`](app/). That folder contains the Next.js app, Prisma schema, and setup instructions.
-
-## What It Does
+## Features
 
 - Contact management with custom reminder intervals
-- Status tracking (Overdue / Due Today / OK)
-- Daily email digest
-- AI-assisted relationship memory and briefings
+- Status tracking (Overdue / Due Today / Upcoming)
+- AI-powered relationship memory using Google Gemini
+- Daily email digest of contacts to reach out to
+- Voice-to-text note taking
 - Category-based defaults (Family, Friends, Work, Other)
 
 ## Quick Start
@@ -19,8 +18,17 @@ cd app
 nvm use
 npm install
 cp .env.example .env
+# Edit .env with your credentials
 npx prisma db push
 npm run dev
 ```
 
-See [`app/README.md`](app/README.md) for the full setup, environment variables, API route behavior, and deployment notes.
+See [`app/README.md`](app/README.md) for detailed setup and configuration.
+
+## Tech Stack
+
+- Next.js 15 + React 19
+- PostgreSQL + Prisma
+- Tailwind CSS v4
+- Google Gemini AI
+- Nodemailer

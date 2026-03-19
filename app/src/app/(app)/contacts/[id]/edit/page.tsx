@@ -32,8 +32,6 @@ export default async function EditContactPage({ params }: Params) {
 
       {/* AI Memory Section */}
       <ContactBriefing
-        contactId={c.id}
-        contactName={c.name}
         aiSummary={aiMemory.aiSummary}
         keyTopics={aiMemory.keyTopics}
         followUps={aiMemory.followUps}
