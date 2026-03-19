@@ -1,35 +1,62 @@
-// Server component: fetch contacts from our API and render a simple list
+// Server component: fetch contacts directly from database
 export const dynamic = "force-dynamic";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
-import { headers } from "next/headers";
 import TouchButton from "@/components/TouchButton";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteContact } from "./actions";
+import { prisma } from "@/lib/db";
+import { computeStatus, type ContactLike } from "@/lib/due";
 
-type ApiRow = {
+type ContactRow = {
   id: string;
   name: string;
   category: "FAMILY" | "FRIEND" | "WORK" | "OTHER";
   status: "overdue" | "today" | "ok";
   daysUntilDue: number;
-  nextDueAt: string; // ISO from the API
-  // (Other fields exist but we don't need them here)
+  nextDueAt: Date;
 };
 
-async function getContacts(): Promise<ApiRow[]> {
-  // Build an absolute URL for server-side fetch (avoids "Failed to parse URL" during SSG)
-  const h = await headers();
-  const host = h.get("host");
-  const proto = process.env.NODE_ENV === "production" ? "https" : "http";
-  const base = `${proto}://${host}`;
-  // no-store = always fresh data (no caching)
-  const res = await fetch(`${base}/api/contacts`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to load contacts: ${res.status} ${res.statusText}`);
-  }
-  const json = await res.json();
-  return (json?.data ?? []) as ApiRow[];
+async function getContacts(): Promise<ContactRow[]> {
+  const contacts = await prisma.contact.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+
+  const now = new Date();
+  const rows = contacts.map((c) => {
+    const computed = computeStatus(
+      {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        intervalDays: c.intervalDays,
+        createdAt: c.createdAt,
+        lastContactedAt: c.lastContactedAt ?? undefined,
+      } as ContactLike,
+      now
+    );
+    return {
+      id: c.id,
+      name: c.name,
+      category: c.category as "FAMILY" | "FRIEND" | "WORK" | "OTHER",
+      status: computed.status,
+      daysUntilDue: computed.daysUntilDue,
+      nextDueAt: computed.nextDueAt,
+    };
+  });
+
+  const order: Record<"overdue" | "today" | "ok", number> = {
+    overdue: 0,
+    today: 1,
+    ok: 2,
+  };
+  rows.sort((a, b) => {
+    const s = order[a.status] - order[b.status];
+    if (s !== 0) return s;
+    return a.nextDueAt.getTime() - b.nextDueAt.getTime();
+  });
+
+  return rows;
 }
 
 export default async function ContactsPage() {
@@ -207,7 +234,7 @@ export default async function ContactsPage() {
                   <div className="mb-4">
                     <p className="text-sm text-slate-600">
                       <span className="font-medium">Next due:</span>{" "}
-                      {formatDateUTC(r.nextDueAt)}
+                      {formatDateUTC(r.nextDueAt.toISOString())}
                     </p>
                   </div>
 
