@@ -11,6 +11,11 @@ KIT Friend tracks your contacts and reminds you when it's time to reach out. It 
 - **Daily Email Digest**: Automated summary of contacts needing attention
 - **Category Defaults**: Set default intervals per category (e.g., Family every 7 days, Friends every 30 days)
 - **Active/Inactive Toggle**: Temporarily pause reminders for specific contacts
+- **AI Relationship Memory** (NEW): 
+  - Add voice or text notes after each interaction
+  - AI extracts key topics and follow-up items automatically
+  - Category-aware summaries (Family, Friends, Work adapt their focus)
+  - "Before You Call" AI briefings with conversation starters
 
 ## Tech Stack
 
@@ -18,6 +23,7 @@ KIT Friend tracks your contacts and reminds you when it's time to reach out. It 
 - **Database**: PostgreSQL via Prisma ORM (Neon recommended)
 - **Styling**: Tailwind CSS v4
 - **Email**: Nodemailer (Gmail or any SMTP provider)
+- **AI**: OpenAI GPT-4o-mini for relationship insights
 - **Hosting**: Vercel
 
 ## Prerequisites
@@ -49,6 +55,9 @@ Required variables:
 ```env
 # Database (Neon PostgreSQL)
 DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
+
+# OpenAI (for AI relationship memory - optional but recommended)
+OPENAI_API_KEY=sk-your-openai-api-key
 
 # Email Configuration (Gmail example)
 SMTP_HOST=smtp.gmail.com
@@ -118,6 +127,19 @@ The digest shows:
 - Top N **Upcoming** contacts (configurable in settings)
 
 Triggered via `/api/digest/send` endpoint (protect with `CRON_SECRET`).
+
+### AI Relationship Memory
+
+When you mark a contact as "touched", you can optionally add a note (voice or text) about your conversation. The AI:
+
+1. **Extracts key topics** - "new job", "moving to Paris", "health concerns"
+2. **Identifies follow-ups** - "Ask about the job interview", "Check on the move"
+3. **Generates smart summaries** - Adapts based on category:
+   - **Family**: Focuses on health, personal life, family events
+   - **Friends**: Focuses on life updates, shared interests, plans
+   - **Work**: Focuses on professional topics, opportunities, projects
+
+The "AI Memory" panel on each contact shows this info, plus you can generate a "Before You Call" briefing with conversation starters.
 
 ## Deployment (Vercel)
 

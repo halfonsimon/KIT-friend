@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db";
 import ContactForm from "@/components/forms/ContactForm";
+import ContactBriefing from "@/components/ContactBriefing";
 import { notFound } from "next/navigation";
 import { updateContact } from "../../actions";
 
@@ -17,6 +18,10 @@ export default async function EditContactPage({ params }: Params) {
 
   const settings = await prisma.setting.findFirst();
 
+  // Parse AI data
+  const keyTopics = c.keyTopics ? JSON.parse(c.keyTopics) : [];
+  const followUps = c.followUps ? JSON.parse(c.followUps) : [];
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
@@ -25,6 +30,15 @@ export default async function EditContactPage({ params }: Params) {
           Update contact information and reminder settings.
         </p>
       </div>
+
+      {/* AI Memory Section */}
+      <ContactBriefing
+        contactId={c.id}
+        contactName={c.name}
+        aiSummary={c.aiSummary}
+        keyTopics={keyTopics}
+        followUps={followUps}
+      />
 
       <ContactForm
         action={updateContact}
