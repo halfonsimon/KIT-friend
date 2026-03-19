@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeStatus } from "@/lib/due";
 import { processInteractionNote } from "@/lib/ai";
@@ -64,8 +65,15 @@ export async function POST(
         },
       });
 
-      // Process with AI (async, don't block response)
-      processNoteInBackground(id, note, updated);
+      // Process with AI using Next.js after() for background work
+      // This keeps the serverless function alive until AI processing completes
+      if (process.env.GEMINI_API_KEY) {
+        after(async () => {
+          await processNoteWithAI(id, note, updated);
+        });
+      } else {
+        console.log("Skipping AI processing - GEMINI_API_KEY not configured");
+      }
     }
 
     // Compute new status
@@ -102,10 +110,9 @@ export async function POST(
 }
 
 /**
- * Process note with AI in background (non-blocking).
- * Updates contact's aiSummary, keyTopics, and followUps.
+ * Process note with AI and update contact.
  */
-async function processNoteInBackground(
+async function processNoteWithAI(
   contactId: string,
   note: string,
   contact: {
@@ -118,12 +125,8 @@ async function processNoteInBackground(
   }
 ) {
   try {
-    // Skip AI processing if no API key configured
-    if (!process.env.GEMINI_API_KEY) {
-      console.log("Skipping AI processing - GEMINI_API_KEY not configured");
-      return;
-    }
-
+    console.log(`Processing AI for contact ${contactId}...`);
+    
     const processed = await processInteractionNote(
       note,
       buildContactContext(contact)
@@ -138,8 +141,8 @@ async function processNoteInBackground(
       },
     });
 
-    console.log(`AI processed note for contact ${contactId}`);
+    console.log(`AI processed note for contact ${contactId}: ${processed.summary?.slice(0, 50)}...`);
   } catch (error) {
-    console.error("Background AI processing error:", error);
+    console.error("AI processing error:", error);
   }
 }
