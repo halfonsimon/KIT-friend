@@ -3,18 +3,27 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { toContactLike } from "@/lib/contact";
 import { computeStatus } from "@/lib/due";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const url = new URL(req.url);
-    // ?active=1 to show only active; default shows all contacts
     const onlyActive = url.searchParams.get("active") === "1";
 
+    const where: { userId: string; isActive?: boolean } = { userId };
+    if (onlyActive) where.isActive = true;
+
     const contacts = await prisma.contact.findMany({
-      where: onlyActive ? { isActive: true } : undefined,
-      orderBy: { createdAt: "asc" }, // base ordering; we’ll sort again after computing status
+      where,
+      orderBy: { createdAt: "asc" },
     });
 
     const now = new Date();
@@ -33,11 +42,10 @@ export async function GET(req: Request) {
         notes: c.notes,
         status: computed.status,
         daysUntilDue: computed.daysUntilDue,
-        nextDueAt: computed.nextDueAt.toISOString(), // serialize Date for JSON
+        nextDueAt: computed.nextDueAt.toISOString(),
       };
     });
 
-    // Sort: Overdue → Today → OK, then by nextDueAt ascending
     const order: Record<"overdue" | "today" | "ok", number> = {
       overdue: 0,
       today: 1,

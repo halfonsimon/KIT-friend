@@ -1,6 +1,6 @@
 /**
  * Application settings management.
- * Settings are stored as a singleton row in the database (id=1).
+ * Each user has their own settings row, keyed by userId.
  * Falls back to sensible defaults if no settings exist.
  */
 import { prisma } from "@/lib/db";
@@ -16,12 +16,13 @@ const FALLBACK = {
   } as Record<Category, number>,
   sendEmailDigest: true,
   digestTime: "06:00",
+  digestEmail: null as string | null,
 };
 
 export type AppSettings = typeof FALLBACK;
 
-export async function getSettings(): Promise<AppSettings> {
-  const row = await prisma.setting.findUnique({ where: { id: 1 } });
+export async function getSettings(userId: string): Promise<AppSettings> {
+  const row = await prisma.setting.findUnique({ where: { userId } });
   if (!row) return FALLBACK;
   return {
     upcomingCount: Math.max(0, row.upcomingCount ?? FALLBACK.upcomingCount),
@@ -45,6 +46,7 @@ export async function getSettings(): Promise<AppSettings> {
     },
     sendEmailDigest: !!row.sendEmailDigest,
     digestTime: row.digestTime ?? FALLBACK.digestTime,
+    digestEmail: row.digestEmail ?? null,
   };
 }
 

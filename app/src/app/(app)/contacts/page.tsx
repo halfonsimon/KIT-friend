@@ -9,6 +9,7 @@ import { deleteContact } from "./actions";
 import { prisma } from "@/lib/db";
 import { type Category, toContactLike } from "@/lib/contact";
 import { computeStatus } from "@/lib/due";
+import { requireUser } from "@/lib/auth-utils";
 
 type ContactRow = {
   id: string;
@@ -20,8 +21,9 @@ type ContactRow = {
   hasAiSummary: boolean;
 };
 
-async function getContacts(): Promise<ContactRow[]> {
+async function getContacts(userId: string): Promise<ContactRow[]> {
   const contacts = await prisma.contact.findMany({
+    where: { userId },
     orderBy: { createdAt: "asc" },
   });
 
@@ -54,7 +56,8 @@ async function getContacts(): Promise<ContactRow[]> {
 }
 
 export default async function ContactsPage() {
-  const rows = await getContacts();
+  const userId = await requireUser();
+  const rows = await getContacts(userId);
 
   return (
     <div className="space-y-8">

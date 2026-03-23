@@ -4,6 +4,7 @@
 
 ## Features
 
+- Multi-user authentication (Google OAuth + email/password)
 - Contact management with custom reminder intervals
 - Status tracking (Overdue / Due Today / Upcoming)
 - AI-powered relationship memory using Google Gemini
@@ -28,6 +29,7 @@ See [`app/README.md`](app/README.md) for detailed setup and configuration.
 ## Tech Stack
 
 - Next.js 15 + React 19
+- Auth.js v5 (Google OAuth + Credentials)
 - PostgreSQL + Prisma
 - Tailwind CSS v4
 - Google Gemini AI

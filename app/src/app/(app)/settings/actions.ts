@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth-utils";
 
 const Schema = z.object({
   upcomingCount: z.coerce.number().int().min(0).max(50),
@@ -19,21 +20,22 @@ const Schema = z.object({
 });
 
 export async function updateSettings(formData: FormData) {
+  const userId = await requireUser();
+
   const data = Schema.parse({
     upcomingCount: formData.get("upcomingCount"),
     family: formData.get("family"),
     friend: formData.get("friend"),
     work: formData.get("work"),
     other: formData.get("other"),
-    // checkboxes -> 'on' ou null
     sendEmailDigest: formData.get("sendEmailDigest") === "on",
     digestTime: formData.get("digestTime"),
   });
 
   await prisma.setting.upsert({
-    where: { id: 1 },
+    where: { userId },
     create: {
-      id: 1,
+      userId,
       upcomingCount: data.upcomingCount,
       defaultFamilyDays: data.family,
       defaultFriendDays: data.friend,

@@ -7,6 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Auth.js models ───────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  accounts      Account[]
+  contacts      Contact[]
+  setting       Setting?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ─── App models ───────────────────────────────────────────────────
+
 enum Category {
   FAMILY
   FRIEND
@@ -26,29 +60,35 @@ model Contact {
   isActive           Boolean       @default(true)
   notes              String?
   interactions       Interaction[]
-  
+
+  userId             String?
+  user               User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // AI-powered relationship memory
-  aiSummary          String?       // AI-maintained rolling summary of the relationship
-  keyTopics          String?       // JSON array of key topics discussed
-  followUps          String?       // JSON array of things to follow up on
+  aiSummary          String?
+  keyTopics          String?
+  followUps          String?
 }
 
 model Interaction {
   id        String   @id @default(cuid())
-  contact   Contact  @relation(fields: [contactId], references: [id])
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   contactId String
   notedAt   DateTime @default(now())
   note      String?
 }
 
 model Setting {
-  id                 Int     @id @default(1)  // singleton row
-  upcomingCount      Int     @default(2)      // combien d'"Upcoming" (Overdue/Today illimités)
-  defaultFamilyDays  Int     @default(7)
-  defaultFriendDays  Int     @default(30)
-  defaultWorkDays    Int     @default(14)
-  defaultOtherDays   Int     @default(21)
-  sendEmailDigest    Boolean @default(true)   // on/off global pour l'email
-  digestTime         String  @default("06:00") // heure d'envoi du digest (HH:MM format)
+  id                 Int      @id @default(autoincrement())
+  userId             String?  @unique
+  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upcomingCount      Int      @default(2)
+  defaultFamilyDays  Int      @default(7)
+  defaultFriendDays  Int      @default(30)
+  defaultWorkDays    Int      @default(14)
+  defaultOtherDays   Int      @default(21)
+  sendEmailDigest    Boolean  @default(true)
+  digestTime         String   @default("06:00")
+  digestEmail        String?
   lastEmailDigestAt  DateTime?
 }

@@ -5,9 +5,11 @@ import ContactForm from "@/components/forms/ContactForm";
 import { createContact } from "../actions";
 import { getSettings } from "@/lib/settings";
 import { DEFAULT_CATEGORY } from "@/lib/contact";
+import { requireUser } from "@/lib/auth-utils";
 
 export default async function NewContactPage() {
-  const settings = await getSettings();
+  const userId = await requireUser();
+  const settings = await getSettings(userId);
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>

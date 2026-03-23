@@ -2,9 +2,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import { auth } from "@/auth";
+import SignOutButton from "@/components/SignOutButton";
 
-// Modern navigation with blue theme
-function Nav() {
+async function Nav() {
+  const session = await auth();
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <nav className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -40,6 +43,27 @@ function Nav() {
             >
               Settings
             </Link>
+
+            {session?.user && (
+              <div className="flex items-center ml-3 pl-3 border-l border-slate-200">
+                {session.user.image ? (
+                  <img
+                    src={session.user.image}
+                    alt=""
+                    className="w-7 h-7 rounded-full mr-2"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold mr-2">
+                    {(session.user.name?.[0] || session.user.email?.[0] || "?").toUpperCase()}
+                  </div>
+                )}
+                <span className="hidden md:block text-sm font-medium text-slate-700 mr-2 max-w-[120px] truncate">
+                  {session.user.name || session.user.email}
+                </span>
+                <SignOutButton />
+              </div>
+            )}
           </div>
         </div>
       </nav>

@@ -1,12 +1,17 @@
 // src/app/api/digest/preview/route.ts
 import { NextResponse } from "next/server";
 import { buildDigest } from "@/lib/digest";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const data = await buildDigest(new Date());
-  // Convert dates to ISO for JSON
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const data = await buildDigest(new Date(), session.user.id);
   const toIso = (x: { nextDueAt: Date; [key: string]: unknown }) => ({
     ...x,
     nextDueAt: x.nextDueAt.toISOString(),

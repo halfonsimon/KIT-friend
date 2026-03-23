@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { buildDigest } from "@/lib/digest";
 import { renderDigestEmail } from "@/lib/email";
 import { sendDigestSMTP } from "@/lib/mailer";
+import { auth } from "@/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,13 +13,6 @@ const DIGEST_WINDOW_MINUTES = 30;
 
 export async function GET(request: Request) {
   return POST(request);
-}
-
-function recipients(): string[] {
-  return (process.env.DIGEST_TO || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 function hasSMTP() {
@@ -38,124 +32,150 @@ function isWithinDigestWindow(currentMinutes: number, targetMinutes: number) {
   );
 }
 
+/**
+ * Two modes:
+ * - ?test=true  → authenticated user sends their own digest (UI "Send Test Email" button)
+ * - no test     → cron job sends digest to all users (requires CRON_SECRET bearer)
+ */
 export async function POST(request: Request) {
   try {
-    // Check for test mode parameter
     const url = new URL(request.url);
     const isTest = url.searchParams.get("test") === "true";
 
-    const settings = await prisma.setting.findUnique({
-      where: { id: 1 },
-      select: {
-        sendEmailDigest: true,
-        digestTime: true,
-        lastEmailDigestAt: true,
-      },
-    });
+    if (!hasSMTP()) {
+      return NextResponse.json(
+        { ok: false, error: "SMTP env vars missing (SMTP_HOST/USER/PASS and FROM_EMAIL)." },
+        { status: 400 }
+      );
+    }
 
-    if (settings?.sendEmailDigest === false) {
+    // ── Test mode: send only the current user's digest ──────────────
+    if (isTest) {
+      const session = await auth();
+      if (!session?.user?.id || !session.user.email) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
+
+      const userId = session.user.id;
+      const userSettings = await prisma.setting.findUnique({ where: { userId } });
+      const email = userSettings?.digestEmail || session.user.email;
+
+      const data = await buildDigest(new Date(), userId);
+      const { subject, html } = renderDigestEmail(data);
+      const result = await sendDigestSMTP([email], subject, html);
+
       return NextResponse.json({
-        ok: false,
-        error: "Email digest is disabled in settings",
-        skipped: true,
+        ok: true,
+        sent: [email],
+        messageId: result.messageId,
+        stats: data.stats,
       });
     }
 
-    // Idempotency: if we already sent a digest today, skip (only for real runs)
-    const lastEmailDigestAt = settings?.lastEmailDigestAt ?? null;
-    if (!isTest && lastEmailDigestAt) {
-      const last = new Date(lastEmailDigestAt);
-      const nowUtcDay = new Date().toISOString().slice(0, 10);
-      const lastUtcDay = last.toISOString().slice(0, 10);
-      if (nowUtcDay === lastUtcDay) {
-        return NextResponse.json({
-          ok: false,
-          skipped: true,
-          error: "Digest already sent today",
-          lastEmailDigestAt,
-        });
-      }
+    // ── Cron mode: verify CRON_SECRET, then iterate all users ───────
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ ok: false, error: "CRON_SECRET not configured" }, { status: 500 });
+    }
+    const bearer = request.headers.get("authorization")?.replace("Bearer ", "");
+    if (bearer !== cronSecret) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if it's the right time to send (within 10 minutes of configured time)
-    // Skip this check in test mode
-    if (!isTest) {
-      const now = new Date();
-      const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}`;
-      const targetTime = settings?.digestTime ?? "06:00";
+    // Find all users with digest enabled
+    const userSettings = await prisma.setting.findMany({
+      where: { sendEmailDigest: true, userId: { not: null } },
+      include: { user: { select: { id: true, email: true, name: true } } },
+    });
 
-      // Parse target time
-      const [targetHour, targetMinute] = targetTime.split(":").map(Number);
+    // Also handle users without settings (defaults: digest enabled)
+    const usersWithSettings = new Set(userSettings.map((s) => s.userId));
+    const usersWithoutSettings = await prisma.user.findMany({
+      where: { id: { notIn: [...usersWithSettings].filter((id): id is string => id !== null) } },
+      select: { id: true, email: true, name: true },
+    });
+
+    const results: { userId: string; email: string; status: string; messageId?: string }[] = [];
+
+    const allDigestTargets = [
+      ...userSettings.map((s) => ({
+        userId: s.userId!,
+        email: s.digestEmail || s.user?.email,
+        digestTime: s.digestTime,
+        lastEmailDigestAt: s.lastEmailDigestAt,
+        settingId: s.id,
+      })),
+      ...usersWithoutSettings.map((u) => ({
+        userId: u.id,
+        email: u.email,
+        digestTime: "06:00",
+        lastEmailDigestAt: null as Date | null,
+        settingId: null as number | null,
+      })),
+    ];
+
+    for (const target of allDigestTargets) {
+      if (!target.email) {
+        results.push({ userId: target.userId, email: "", status: "skipped_no_email" });
+        continue;
+      }
+
+      // Idempotency check
+      if (target.lastEmailDigestAt) {
+        const last = new Date(target.lastEmailDigestAt);
+        const nowUtcDay = new Date().toISOString().slice(0, 10);
+        const lastUtcDay = last.toISOString().slice(0, 10);
+        if (nowUtcDay === lastUtcDay) {
+          results.push({ userId: target.userId, email: target.email, status: "already_sent_today" });
+          continue;
+        }
+      }
+
+      // Time window check
+      const now = new Date();
+      const [targetHour, targetMinute] = (target.digestTime ?? "06:00").split(":").map(Number);
       const targetMinutes = targetHour * 60 + targetMinute;
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-      // Allow a 30-minute window so schedulers do not need minute-perfect timing.
       if (!isWithinDigestWindow(currentMinutes, targetMinutes)) {
-        return NextResponse.json({
-          ok: false,
-          error: `Not time to send digest yet. Current: ${currentTime}, Target: ${targetTime}`,
-          skipped: true,
-          currentTime,
-          targetTime,
+        results.push({ userId: target.userId, email: target.email, status: "not_time_yet" });
+        continue;
+      }
+
+      const data = await buildDigest(new Date(), target.userId);
+      const { subject, html } = renderDigestEmail(data);
+
+      try {
+        const result = await sendDigestSMTP([target.email], subject, html);
+
+        if (target.settingId) {
+          await prisma.setting.update({
+            where: { id: target.settingId },
+            data: { lastEmailDigestAt: new Date() },
+          });
+        } else {
+          await prisma.setting.create({
+            data: { userId: target.userId, lastEmailDigestAt: new Date() },
+          });
+        }
+
+        results.push({
+          userId: target.userId,
+          email: target.email,
+          status: "sent",
+          messageId: result.messageId,
         });
+      } catch (err) {
+        console.error(`Failed to send digest to ${target.email}:`, err);
+        results.push({ userId: target.userId, email: target.email, status: "error" });
       }
     }
 
-    const data = await buildDigest(new Date());
-    const { subject, html } = renderDigestEmail(data);
-
-    const to = recipients();
-    if (!to.length) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Set DIGEST_TO in .env.local",
-          subject,
-          htmlLength: html.length,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!hasSMTP()) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "SMTP env vars missing (SMTP_HOST/PORT/USER/PASS and FROM_EMAIL).",
-          subject,
-          htmlLength: html.length,
-        },
-        { status: 400 }
-      );
-    }
-
-    const result = await sendDigestSMTP(to, subject, html);
-
-    // Mark as sent now (idempotency for the day)
-    if (!isTest) {
-      await prisma.setting.upsert({
-        where: { id: 1 },
-        create: { id: 1, lastEmailDigestAt: new Date() },
-        update: { lastEmailDigestAt: new Date() },
-      });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      sent: to,
-      messageId: result.messageId,
-      accepted: result.accepted,
-      rejected: result.rejected,
-      stats: data.stats,
-    });
+    return NextResponse.json({ ok: true, results });
   } catch (err) {
     console.error("digest send error:", err);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "Server error" },
       { status: 500 }
     );
   }

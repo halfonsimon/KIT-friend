@@ -1,11 +1,13 @@
 // src/app/(app)/settings/page.tsx
 import { getSettings } from "@/lib/settings";
 import { updateSettings } from "./actions";
+import { requireUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const s = await getSettings();
+  const userId = await requireUser();
+  const s = await getSettings(userId);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

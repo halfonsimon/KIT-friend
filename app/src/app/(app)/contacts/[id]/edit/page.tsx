@@ -8,17 +8,19 @@ import { notFound } from "next/navigation";
 import { updateContact } from "../../actions";
 import { getSettings } from "@/lib/settings";
 import { readStoredAiMemory, type Category } from "@/lib/contact";
+import { requireUser } from "@/lib/auth-utils";
 
 type Params = { params: Promise<{ id: string }> };
 
 export default async function EditContactPage({ params }: Params) {
+  const userId = await requireUser();
   const resolvedParams = await params;
   const c = await prisma.contact.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id: resolvedParams.id, userId },
   });
   if (!c) notFound();
 
-  const settings = await getSettings();
+  const settings = await getSettings(userId);
   const aiMemory = readStoredAiMemory(c);
 
   return (

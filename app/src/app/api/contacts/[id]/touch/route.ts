@@ -16,6 +16,7 @@ import {
   stringifyStoredStringArray,
   toContactLike,
 } from "@/lib/contact";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,12 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
   const params = await ctx.params;
   const id = params?.id;
 
@@ -34,7 +41,6 @@ export async function POST(
   }
 
   try {
-    // Parse optional note from request body
     let note = "";
     try {
       const body = await req.json();
@@ -43,9 +49,9 @@ export async function POST(
       // No body or invalid JSON is fine - note is optional
     }
 
-    // Update lastContactedAt
+    // Verify ownership before updating
     const updated = await prisma.contact.update({
-      where: { id },
+      where: { id, userId },
       data: { lastContactedAt: new Date() },
       include: {
         interactions: {
@@ -55,7 +61,6 @@ export async function POST(
       },
     });
 
-    // Create interaction record if there's a note
     if (note) {
       await prisma.interaction.create({
         data: {
@@ -65,8 +70,6 @@ export async function POST(
         },
       });
 
-      // Process with AI using Next.js after() for background work
-      // This keeps the serverless function alive until AI processing completes
       if (process.env.GEMINI_API_KEY) {
         after(async () => {
           await processNoteWithAI(id, note, updated);
@@ -76,7 +79,6 @@ export async function POST(
       }
     }
 
-    // Compute new status
     const computed = computeStatus(toContactLike(updated), new Date());
 
     return NextResponse.json({
@@ -109,9 +111,6 @@ export async function POST(
   }
 }
 
-/**
- * Process note with AI and update contact.
- */
 async function processNoteWithAI(
   contactId: string,
   note: string,

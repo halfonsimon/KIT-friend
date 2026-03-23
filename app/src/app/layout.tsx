@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { ReactNode } from "react";
-import "./globals.css"; // ✅ global CSS is allowed only here
+import { SessionProvider } from "next-auth/react";
+import "./globals.css";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

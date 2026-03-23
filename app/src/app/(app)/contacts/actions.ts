@@ -9,6 +9,7 @@ import { getSettings, defaultIntervalFor } from "@/lib/settings";
 import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { requireUser } from "@/lib/auth-utils";
 
 export type ActionState = {
   ok: boolean;
@@ -55,10 +56,10 @@ export async function createContact(
   formData: FormData
 ): Promise<ActionState> {
   try {
+    const userId = await requireUser();
     const input = readForm(formData);
 
-    // If intervalDays is not provided, use category default
-    const settings = await getSettings();
+    const settings = await getSettings(userId);
     const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
     await prisma.contact.create({
@@ -68,6 +69,7 @@ export async function createContact(
         category: input.category,
         intervalDays,
         isActive: input.isActive,
+        userId,
       },
     });
     // Ensure /contacts shows fresh data, then navigate
@@ -102,17 +104,17 @@ export async function updateContact(
   formData: FormData
 ): Promise<ActionState> {
   try {
+    const userId = await requireUser();
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
     const input = readForm(formData);
 
-    // If intervalDays is not provided, use category default
-    const settings = await getSettings();
+    const settings = await getSettings(userId);
     const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
     await prisma.contact.update({
-      where: { id },
+      where: { id, userId },
       data: {
         name: input.name,
         phone: input.phone ?? null,
@@ -160,11 +162,12 @@ export async function deleteContact(
   formData: FormData
 ): Promise<ActionState> {
   try {
+    const userId = await requireUser();
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
     await prisma.contact.delete({
-      where: { id },
+      where: { id, userId },
     });
     revalidatePath("/contacts");
     redirect("/contacts");

@@ -30,13 +30,17 @@ function byNextDue(a: DigestItem, b: DigestItem) {
   return a.nextDueAt.getTime() - b.nextDueAt.getTime();
 }
 
-/** Build the digest for a given moment (defaults to now). */
-export async function buildDigest(now: Date = new Date()): Promise<DigestData> {
-  // 1) Load settings and active contacts
+/** Build the digest for a given moment and user. */
+export async function buildDigest(now: Date = new Date(), userId?: string): Promise<DigestData> {
+  const contactWhere: { isActive: boolean; userId?: string } = { isActive: true };
+  if (userId) contactWhere.userId = userId;
+
   const [settings, rows] = await Promise.all([
-    prisma.setting.findFirst(),
+    userId
+      ? prisma.setting.findUnique({ where: { userId } })
+      : prisma.setting.findFirst(),
     prisma.contact.findMany({
-      where: { isActive: true },
+      where: contactWhere,
       select: {
         id: true,
         name: true,

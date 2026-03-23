@@ -4,6 +4,7 @@ import type { Category } from "@/lib/contact";
 import { formatDateUTC } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import SendDigestButton from "./SendDigestButton";
+import { requireUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic"; // always fresh
 
@@ -129,7 +130,8 @@ function Section({
 }
 
 export default async function DigestPage() {
-  const data = await buildDigest(new Date());
+  const userId = await requireUser();
+  const data = await buildDigest(new Date(), userId);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
