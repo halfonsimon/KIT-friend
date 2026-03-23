@@ -1,6 +1,7 @@
 // src/app/(app)/layout.tsx
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import Logo from "@/components/Logo";
 import { auth } from "@/auth";
 import SignOutButton from "@/components/SignOutButton";
@@ -47,10 +48,12 @@ async function Nav() {
             {session?.user && (
               <div className="flex items-center ml-3 pl-3 border-l border-slate-200">
                 {session.user.image ? (
-                  <img
+                  <Image
                     src={session.user.image}
                     alt=""
-                    className="w-7 h-7 rounded-full mr-2"
+                    width={28}
+                    height={28}
+                    className="rounded-full mr-2"
                     referrerPolicy="no-referrer"
                   />
                 ) : (

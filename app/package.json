@@ -23,6 +23,11 @@
     "react-dom": "19.1.0",
     "zod": "^4.1.9"
   },
+  "overrides": {
+    "@auth/core": {
+      "nodemailer": "$nodemailer"
+    }
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
