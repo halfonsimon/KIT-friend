@@ -4,6 +4,7 @@
   "description": "Keep in Touch - A personal CRM to maintain meaningful relationships",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
