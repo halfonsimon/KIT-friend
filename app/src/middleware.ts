@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const isPublicPath = (pathname: string) =>
+  pathname === "/" ||
+  pathname === "/login" ||
+  pathname === "/register" ||
+  pathname.startsWith("/api/auth") ||
+  pathname === "/api/register";
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow auth API routes
-  if (pathname.startsWith("/api/auth")) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -19,21 +25,21 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
       }
     }
-    // Fall through to normal JWT auth check below
   }
 
-  // Allow register API
-  if (pathname === "/api/register") {
-    return NextResponse.next();
-  }
+  // Check for session token -- use explicit cookie name for Auth.js v5
+  const isSecure = req.nextUrl.protocol === "https:";
+  const cookieName = isSecure
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
 
-  // Public pages: landing, login, register
-  if (pathname === "/" || pathname === "/login" || pathname === "/register") {
-    return NextResponse.next();
-  }
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET!,
+    salt: cookieName,
+    secureCookie: isSecure,
+  });
 
-  // Everything else requires authentication
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
   if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
