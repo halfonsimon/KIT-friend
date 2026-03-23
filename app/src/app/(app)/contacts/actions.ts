@@ -113,8 +113,11 @@ export async function updateContact(
     const settings = await getSettings(userId);
     const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
+    const existing = await prisma.contact.findFirst({ where: { id, userId } });
+    if (!existing) return { ok: false, message: "Contact not found" };
+
     await prisma.contact.update({
-      where: { id, userId },
+      where: { id },
       data: {
         name: input.name,
         phone: input.phone ?? null,
@@ -144,14 +147,6 @@ export async function updateContact(
       }
       return { ok: false, fieldErrors };
     }
-    if (
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      err.code === "P2025"
-    ) {
-      return { ok: false, message: "Contact not found" };
-    }
     console.error("updateContact error:", err);
     return { ok: false, message: "Server error. Please try again." };
   }
@@ -166,21 +161,14 @@ export async function deleteContact(
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
-    await prisma.contact.delete({
-      where: { id, userId },
-    });
+    const existing = await prisma.contact.findFirst({ where: { id, userId } });
+    if (!existing) return { ok: false, message: "Contact not found" };
+
+    await prisma.contact.delete({ where: { id } });
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {
     if (isNextRedirect(err)) throw err;
-    if (
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      err.code === "P2025"
-    ) {
-      return { ok: false, message: "Contact not found" };
-    }
     console.error("deleteContact error:", err);
     return { ok: false, message: "Server error. Please try again." };
   }

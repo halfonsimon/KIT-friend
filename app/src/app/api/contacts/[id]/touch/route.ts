@@ -50,8 +50,13 @@ export async function POST(
     }
 
     // Verify ownership before updating
+    const owned = await prisma.contact.findFirst({ where: { id, userId } });
+    if (!owned) {
+      return NextResponse.json({ ok: false, error: "Contact not found" }, { status: 404 });
+    }
+
     const updated = await prisma.contact.update({
-      where: { id, userId },
+      where: { id },
       data: { lastContactedAt: new Date() },
       include: {
         interactions: {

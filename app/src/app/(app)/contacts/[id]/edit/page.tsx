@@ -15,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export default async function EditContactPage({ params }: Params) {
   const userId = await requireUser();
   const resolvedParams = await params;
-  const c = await prisma.contact.findUnique({
+  const c = await prisma.contact.findFirst({
     where: { id: resolvedParams.id, userId },
   });
   if (!c) notFound();
