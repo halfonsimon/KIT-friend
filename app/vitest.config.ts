@@ -7,6 +7,14 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src") },
   },
   test: {
+    // Reported on every PR, never enforced (no thresholds).
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.ts", "src/test/**", "src/types/**"],
+      reporter: ["text-summary", "html", "json-summary", "json"],
+      reportOnFailure: true,
+    },
     projects: [
       {
         extends: true,

@@ -1,4 +1,4 @@
-# Runs on every push to develop and every PR to main.
+# Runs on every push to develop and every PR to main or develop (e.g. Dependabot).
 # Three parallel jobs, each its own check: checks, db-tests, build.
 name: CI
 
@@ -6,7 +6,7 @@ on:
   push:
     branches: [develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -28,6 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
@@ -35,6 +36,9 @@ jobs:
   db-tests:
     name: db-tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # coverage summary comment
     services:
       postgres:
         image: postgres:16-alpine
@@ -59,7 +63,22 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - run: npm run test:db
+      # Full suite (unit + db) so the coverage report covers both projects.
+      - run: npm run test:coverage
+      - name: Coverage summary
+        if: always()
+        continue-on-error: true # Dependabot PRs get a read-only token
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          working-directory: app
+          file-coverage-mode: all
+      - name: Upload HTML coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: app/coverage/
+          retention-days: 14
 
   build:
     name: build
