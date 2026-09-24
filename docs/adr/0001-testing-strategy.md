@@ -6,7 +6,7 @@ The route gate (`proxy()`) is the one extra seam: it's called directly with cons
 
 Route handlers are not unit tested. They call Auth.js's `auth()`, which needs a live Next request; testing them in Vitest would mean mocking `auth()` and testing the mock. Instead they are to be covered end to end over HTTP (Playwright against `next start`, a `_test` Postgres, and Mailpit catching outgoing mail), accepting slower feedback in exchange for no mocks.
 
-CI (GitHub Actions) runs lint, type-check, unit tests, db tests and the build on every push to `develop` and every PR to `main`. Next steps: `main` only accepts green PRs (branch protection), and coverage is reported on PRs but never enforced.
+CI (GitHub Actions) runs lint, type-check, unit tests, db tests and the build on every push to `develop` and every PR to `main`; `main` only accepts green, up-to-date PRs (branch protection). Coverage of unit and db tests together is reported on every PR, never enforced.
 
 ## Consequences
 
