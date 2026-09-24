@@ -3,7 +3,7 @@
 import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { db, daysAgo, utcTimeNow } from "./support/db";
 import { APP_URL, CRON_SECRET } from "./support/env";
-import { clearMailpit, expectMailTo, mailTo } from "./support/mailpit";
+import { caughtMailFor, clearMailpit, expectMailTo } from "./support/mailpit";
 import { newUser, signInThroughUi, type TestUser } from "./support/users";
 
 test.beforeEach(clearMailpit);
@@ -15,10 +15,19 @@ async function register(request: APIRequestContext, user: TestUser) {
   return (await db.user.findUniqueOrThrow({ where: { email: user.email } })).id;
 }
 
-async function overdueContact(userId: string, name: string) {
+async function createOverdueContact(userId: string, name: string) {
   return db.contact.create({
     data: { userId, name, category: "FRIEND", intervalDays: 7, createdAt: daysAgo(10) },
   });
+}
+
+/** A new user with an overdue Contact whose digest time is now (UTC), inside the ±30 min send window. */
+async function userDueForDigest(request: APIRequestContext, label: string) {
+  const user = newUser(label);
+  const userId = await register(request, user);
+  await createOverdueContact(userId, "Ada Lovelace");
+  await db.setting.create({ data: { userId, digestTime: utcTimeNow() } });
+  return user;
 }
 
 /** The route gate's answer to a request without a session: a redirect to /login. */
@@ -35,11 +44,7 @@ const cronRun = (request: APIRequestContext, bearer?: string) =>
 
 test.describe("scheduled Digest (cron mode)", () => {
   test("sends a due user's Digest once per UTC day", async ({ request }) => {
-    const user = newUser("cron");
-    const userId = await register(request, user);
-    await overdueContact(userId, "Ada Lovelace");
-    // Digest time = now (UTC), so the user is inside the ±30 min send window.
-    await db.setting.create({ data: { userId, digestTime: utcTimeNow() } });
+    const user = await userDueForDigest(request, "cron");
 
     const first = await cronRun(request, CRON_SECRET);
     expect(first.status()).toBe(200);
@@ -60,27 +65,27 @@ test.describe("scheduled Digest (cron mode)", () => {
   test("a wrong or missing CRON_SECRET without a session is sent to /login, and nothing is sent", async ({
     request,
   }) => {
-    const user = newUser("cron-denied");
-    const userId = await register(request, user);
-    await overdueContact(userId, "Ada Lovelace");
-    await db.setting.create({ data: { userId, digestTime: utcTimeNow() } });
+    const user = await userDueForDigest(request, "cron-denied");
 
     // The route gate stops the request before the route: no session, no valid bearer.
     for (const bearer of ["wrong-secret", undefined]) {
       expectSentToLogin(await cronRun(request, bearer));
     }
-    expect(await mailTo(user.email)).toEqual([]);
+    expect(await caughtMailFor(user.email)).toEqual([]);
   });
 
-  test("a signed-in user with a wrong CRON_SECRET gets 401 from the route", async ({ page }) => {
-    const user = newUser("cron-session");
-    await register(page.request, user);
+  test("a signed-in user with a wrong or missing CRON_SECRET gets 401 from the route, and nothing is sent", async ({
+    page,
+  }) => {
+    const user = await userDueForDigest(page.request, "cron-session");
     await signInThroughUi(page, user);
 
-    const res = await page.request.post("/api/digest/send", {
-      headers: { authorization: "Bearer wrong-secret" },
-    });
-    expect(res.status()).toBe(401);
+    const wrongOrMissing: Record<string, string>[] = [{ authorization: "Bearer wrong-secret" }, {}];
+    for (const headers of wrongOrMissing) {
+      const res = await page.request.post("/api/digest/send", { headers });
+      expect(res.status()).toBe(401);
+    }
+    expect(await caughtMailFor(user.email)).toEqual([]);
   });
 });
 
@@ -114,7 +119,7 @@ test.describe("ownership", () => {
   test("a user can't record a Touch on another user's Contact", async ({ page }) => {
     const owner = newUser("owner");
     const ownerId = await register(page.request, owner);
-    const contact = await overdueContact(ownerId, "Ada Lovelace");
+    const contact = await createOverdueContact(ownerId, "Ada Lovelace");
 
     const intruder = newUser("intruder");
     await register(page.request, intruder);

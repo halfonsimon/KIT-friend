@@ -15,7 +15,8 @@ function runPrismaCli(args: string, url: string, input?: string) {
 export default async function globalSetup() {
   const url = e2eDatabaseUrl();
   try {
-    // migrate deploy creates the database if it doesn't exist yet.
+    // First run: `db execute` needs the database to exist, and `migrate deploy`
+    // creates it when it doesn't (the test Postgres starts with only kit_friend_test).
     runPrismaCli("migrate deploy", url);
     runPrismaCli("db execute --stdin --url \"$DATABASE_URL\"", url, "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
     runPrismaCli("migrate deploy", url);

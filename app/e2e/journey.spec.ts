@@ -3,13 +3,16 @@
 import { expect, test } from "@playwright/test";
 import { db, daysAgo } from "./support/db";
 import { clearMailpit, expectMailTo } from "./support/mailpit";
-import { newUser, registerThroughUi } from "./support/users";
+import { newUser, registerThroughUi, signInThroughUi } from "./support/users";
 
 test.beforeEach(clearMailpit);
 
 test("a new user adds Contacts, records a Touch and receives the Digest", async ({ page }) => {
   const user = newUser("journey");
   await registerThroughUi(page, user);
+  // Registering signs the user in; sign in again through the login form too.
+  await page.context().clearCookies();
+  await signInThroughUi(page, user);
 
   for (const name of ["Ada Lovelace", "Grace Hopper"]) {
     await page.goto("/contacts/new");

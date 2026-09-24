@@ -2,7 +2,7 @@
 import { expect } from "@playwright/test";
 import { MAILPIT_URL } from "./env";
 
-type Summary = { ID: string; Subject: string; To: { Address: string }[] };
+type MailpitMessageSummary = { ID: string; Subject: string; To: { Address: string }[] };
 
 export type CaughtMail = { subject: string; to: string[]; html: string };
 
@@ -12,9 +12,9 @@ export async function clearMailpit() {
 }
 
 /** Every message Mailpit caught for this address, oldest first. */
-export async function mailTo(address: string): Promise<CaughtMail[]> {
+export async function caughtMailFor(address: string): Promise<CaughtMail[]> {
   const res = await fetch(`${MAILPIT_URL}/api/v1/messages?limit=200`);
-  const { messages } = (await res.json()) as { messages: Summary[] };
+  const { messages } = (await res.json()) as { messages: MailpitMessageSummary[] };
   const mine = messages
     .filter((m) => m.To.some((t) => t.Address.toLowerCase() === address.toLowerCase()))
     .reverse();
@@ -33,7 +33,7 @@ export async function mailTo(address: string): Promise<CaughtMail[]> {
 export async function expectMailTo(address: string, count: number): Promise<CaughtMail[]> {
   let mail: CaughtMail[] = [];
   await expect
-    .poll(async () => (mail = await mailTo(address)).length, {
+    .poll(async () => (mail = await caughtMailFor(address)).length, {
       message: `expected ${count} email(s) to ${address}`,
       timeout: 10_000,
     })
