@@ -10,6 +10,7 @@ import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-utils";
+import { contactsOf } from "@/lib/contacts";
 
 export type ActionState = {
   ok: boolean;
@@ -113,19 +114,15 @@ export async function updateContact(
     const settings = await getSettings(userId);
     const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
 
-    const existing = await prisma.contact.findFirst({ where: { id, userId } });
-    if (!existing) return { ok: false, message: "Contact not found" };
-
-    await prisma.contact.update({
-      where: { id },
-      data: {
-        name: input.name,
-        phone: input.phone ?? null,
-        category: input.category,
-        intervalDays,
-        isActive: input.isActive,
-      },
+    const updated = await contactsOf(userId).update(id, {
+      name: input.name,
+      phone: input.phone ?? null,
+      category: input.category,
+      intervalDays,
+      isActive: input.isActive,
     });
+    if (!updated) return { ok: false, message: "Contact not found" };
+
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {
@@ -161,10 +158,9 @@ export async function deleteContact(
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
-    const existing = await prisma.contact.findFirst({ where: { id, userId } });
-    if (!existing) return { ok: false, message: "Contact not found" };
+    const removed = await contactsOf(userId).remove(id);
+    if (!removed) return { ok: false, message: "Contact not found" };
 
-    await prisma.contact.delete({ where: { id } });
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {

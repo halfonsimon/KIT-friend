@@ -1,7 +1,7 @@
 // src/app/contacts/[id]/edit/page.tsx
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/db";
+import { contactsOf } from "@/lib/contacts";
 import ContactForm from "@/components/forms/ContactForm";
 import ContactBriefing from "@/components/ContactBriefing";
 import { notFound } from "next/navigation";
@@ -15,9 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export default async function EditContactPage({ params }: Params) {
   const userId = await requireUser();
   const resolvedParams = await params;
-  const c = await prisma.contact.findFirst({
-    where: { id: resolvedParams.id, userId },
-  });
+  const c = await contactsOf(userId).get(resolvedParams.id);
   if (!c) notFound();
 
   const settings = await getSettings(userId);
