@@ -47,6 +47,21 @@ describe("settings", () => {
     expect((await getSettings(alice.id)).upcomingCount).toBe(2);
   });
 
+  it("names every invalid field with a readable message", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const error = await saveSettings(alice.id, {
+      ...CUSTOM,
+      defaultsByCategory: { ...CUSTOM.defaultsByCategory, WORK: 0 },
+      digestEmail: "not-an-email",
+    }).catch((e) => e);
+
+    expect(error.issues.map((i: { path: string[]; message: string }) => [i.path.join("."), i.message])).toEqual([
+      ["defaultsByCategory.WORK", "Must be between 1 and 365 days"],
+      ["digestEmail", "Enter a valid email address, or leave it blank"],
+    ]);
+  });
+
   it("gives a user with no saved settings the defaults", async () => {
     const alice = await createUser("alice@example.com");
 

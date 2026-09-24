@@ -67,11 +67,19 @@ export async function getSettings(userId: string): Promise<AppSettings> {
   return settingsFromRow(row);
 }
 
-const IntervalDays = z.number().int().min(1).max(365);
+const IntervalDays = z
+  .number({ error: "Enter a number of days" })
+  .int("Use whole days")
+  .min(1, "Must be between 1 and 365 days")
+  .max(365, "Must be between 1 and 365 days");
 
 /** The limits every saved setting must respect. */
 export const SettingsSchema = z.object({
-  upcomingCount: z.number().int().min(0).max(50),
+  upcomingCount: z
+    .number({ error: "Enter a number" })
+    .int("Use a whole number")
+    .min(0, "Must be between 0 and 50")
+    .max(50, "Must be between 0 and 50"),
   defaultsByCategory: z.object({
     FAMILY: IntervalDays,
     FRIEND: IntervalDays,
@@ -80,7 +88,7 @@ export const SettingsSchema = z.object({
   }),
   sendEmailDigest: z.boolean(),
   digestTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  digestEmail: z.email("Invalid email address").nullable(),
+  digestEmail: z.email("Enter a valid email address, or leave it blank").nullable(),
 });
 
 /**

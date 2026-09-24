@@ -9,7 +9,9 @@ import { saveSettings } from "@/lib/settings";
 
 const toNumber = (v: FormDataEntryValue | null) => Number(v ?? NaN);
 
-export async function updateSettings(formData: FormData) {
+export type SettingsActionState = { fieldErrors: Record<string, string> } | undefined;
+
+export async function updateSettings(formData: FormData): Promise<SettingsActionState> {
   const userId = await requireUser();
   const digestEmail = String(formData.get("digestEmail") ?? "").trim();
 
@@ -27,10 +29,14 @@ export async function updateSettings(formData: FormData) {
       digestEmail: digestEmail || null,
     });
   } catch (err) {
-    // Send the user back with the invalid field named, so the page can show its error.
+    // Report each invalid field (e.g. "digestEmail", "defaultsByCategory.WORK") to the form.
     if (err instanceof ZodError) {
-      const field = String(err.issues[0]?.path[0] ?? "form");
-      redirect(`/settings?invalid=${encodeURIComponent(field)}`);
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of err.issues) {
+        const field = issue.path.map(String).join(".") || "form";
+        fieldErrors[field] ??= issue.message;
+      }
+      return { fieldErrors };
     }
     throw err;
   }

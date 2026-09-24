@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-utils";
-import { contactsOf } from "@/lib/contacts";
+import { contactsOf } from "@/lib/contacts-of";
 
 export type ActionState = {
   ok: boolean;

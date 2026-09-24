@@ -6,7 +6,7 @@
  */
 import type { RelationshipMemory } from "./ai";
 import { buildContactContext, stringifyStoredStringArray } from "./contact";
-import { contactsOf } from "./contacts";
+import { contactsOf } from "./contacts-of";
 import { prisma } from "./db";
 import { computeStatus, type Computed } from "./due";
 

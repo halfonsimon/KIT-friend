@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { contactsOf } from "./contacts";
+import { contactsOf } from "./contacts-of";
 
 async function createUser(email: string) {
   return prisma.user.create({ data: { email } });

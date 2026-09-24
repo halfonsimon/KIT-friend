@@ -1,7 +1,7 @@
 // src/app/contacts/[id]/edit/page.tsx
 export const dynamic = "force-dynamic";
 
-import { contactsOf } from "@/lib/contacts";
+import { contactsOf } from "@/lib/contacts-of";
 import ContactForm from "@/components/forms/ContactForm";
 import ContactBriefing from "@/components/ContactBriefing";
 import { notFound } from "next/navigation";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { roster } from "./roster";
 import { fakeRelationshipMemory } from "@/test/fake-relationship-memory";
-import { contactsOf } from "./contacts";
+import { contactsOf } from "./contacts-of";
 import { readStoredAiMemory } from "./contact";
 import { recordTouch } from "./touch";
 
