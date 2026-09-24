@@ -1,16 +1,11 @@
 // src/app/api/digest/send/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { buildDigest } from "@/lib/digest";
-import { renderDigestEmail } from "@/lib/email";
 import { smtpMailer } from "@/lib/mailer";
-import { sendTestDigest } from "@/lib/digest-delivery";
+import { runScheduledDigests, sendTestDigest } from "@/lib/digest-delivery";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DIGEST_WINDOW_MINUTES = 30;
 
 export async function GET(request: Request) {
   return POST(request);
@@ -22,14 +17,6 @@ function hasSMTP() {
     !!process.env.SMTP_USER &&
     !!process.env.SMTP_PASS &&
     !!process.env.FROM_EMAIL
-  );
-}
-
-function isWithinDigestWindow(currentMinutes: number, targetMinutes: number) {
-  const timeDiff = Math.abs(currentMinutes - targetMinutes);
-  return (
-    timeDiff <= DIGEST_WINDOW_MINUTES ||
-    timeDiff >= 24 * 60 - DIGEST_WINDOW_MINUTES
   );
 }
 
@@ -72,7 +59,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── Cron mode: verify CRON_SECRET, then iterate all users ───────
+    // ── Cron mode: verify CRON_SECRET, then run every user's digest ──
     const cronSecret = process.env.CRON_SECRET;
     if (!cronSecret) {
       return NextResponse.json({ ok: false, error: "CRON_SECRET not configured" }, { status: 500 });
@@ -82,95 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find all users with digest enabled
-    const userSettings = await prisma.setting.findMany({
-      where: { sendEmailDigest: true, userId: { not: null } },
-      include: { user: { select: { id: true, email: true, name: true } } },
-    });
-
-    // Also handle users without settings (defaults: digest enabled)
-    const usersWithSettings = new Set(userSettings.map((s) => s.userId));
-    const usersWithoutSettings = await prisma.user.findMany({
-      where: { id: { notIn: [...usersWithSettings].filter((id): id is string => id !== null) } },
-      select: { id: true, email: true, name: true },
-    });
-
-    const results: { userId: string; email: string; status: string; messageId?: string }[] = [];
-
-    const allDigestTargets = [
-      ...userSettings.map((s) => ({
-        userId: s.userId!,
-        email: s.digestEmail || s.user?.email,
-        digestTime: s.digestTime,
-        lastEmailDigestAt: s.lastEmailDigestAt,
-        settingId: s.id,
-      })),
-      ...usersWithoutSettings.map((u) => ({
-        userId: u.id,
-        email: u.email,
-        digestTime: "06:00",
-        lastEmailDigestAt: null as Date | null,
-        settingId: null as number | null,
-      })),
-    ];
-
-    for (const target of allDigestTargets) {
-      if (!target.email) {
-        results.push({ userId: target.userId, email: "", status: "skipped_no_email" });
-        continue;
-      }
-
-      // Idempotency check
-      if (target.lastEmailDigestAt) {
-        const last = new Date(target.lastEmailDigestAt);
-        const nowUtcDay = new Date().toISOString().slice(0, 10);
-        const lastUtcDay = last.toISOString().slice(0, 10);
-        if (nowUtcDay === lastUtcDay) {
-          results.push({ userId: target.userId, email: target.email, status: "already_sent_today" });
-          continue;
-        }
-      }
-
-      // Time window check
-      const now = new Date();
-      const [targetHour, targetMinute] = (target.digestTime ?? "06:00").split(":").map(Number);
-      const targetMinutes = targetHour * 60 + targetMinute;
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-      if (!isWithinDigestWindow(currentMinutes, targetMinutes)) {
-        results.push({ userId: target.userId, email: target.email, status: "not_time_yet" });
-        continue;
-      }
-
-      const data = await buildDigest(target.userId);
-      const { subject, html } = renderDigestEmail(data);
-
-      try {
-        const result = await smtpMailer().send({ to: [target.email], subject, html });
-
-        if (target.settingId) {
-          await prisma.setting.update({
-            where: { id: target.settingId },
-            data: { lastEmailDigestAt: new Date() },
-          });
-        } else {
-          await prisma.setting.create({
-            data: { userId: target.userId, lastEmailDigestAt: new Date() },
-          });
-        }
-
-        results.push({
-          userId: target.userId,
-          email: target.email,
-          status: "sent",
-          messageId: result.messageId,
-        });
-      } catch (err) {
-        console.error(`Failed to send digest to ${target.email}:`, err);
-        results.push({ userId: target.userId, email: target.email, status: "error" });
-      }
-    }
-
+    const results = await runScheduledDigests({ now: new Date(), mailer: smtpMailer() });
     return NextResponse.json({ ok: true, results });
   } catch (err) {
     console.error("digest send error:", err);
