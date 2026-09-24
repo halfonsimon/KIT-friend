@@ -5,9 +5,12 @@ import { requireUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+type Props = { searchParams: Promise<{ invalid?: string }> };
+
+export default async function SettingsPage({ searchParams }: Props) {
   const userId = await requireUser();
   const s = await getSettings(userId);
+  const { invalid } = await searchParams;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -99,6 +102,33 @@ export default async function SettingsPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     Keep your scheduler aligned with this time in your deploy
                     environment.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="digestEmail"
+                    className="block text-sm font-semibold text-slate-900 mb-2"
+                  >
+                    Send digest to
+                  </label>
+                  <input
+                    id="digestEmail"
+                    type="email"
+                    name="digestEmail"
+                    defaultValue={s.digestEmail ?? ""}
+                    placeholder="Your account email"
+                    aria-invalid={invalid === "digestEmail"}
+                    aria-describedby="digestEmail-help"
+                    className="w-full max-w-sm rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                  />
+                  {invalid === "digestEmail" && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Enter a valid email address, or leave it blank.
+                    </p>
+                  )}
+                  <p id="digestEmail-help" className="mt-1 text-xs text-slate-500">
+                    Leave blank to send the digest to your account email.
                   </p>
                 </div>
               </div>
