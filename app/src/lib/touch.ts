@@ -54,7 +54,7 @@ export async function recordTouch(input: {
     if (memory) {
       const context = buildContactContext({ ...touched, interactions: earlier });
       const defer = input.defer ?? ((task) => task());
-      await defer(() => rememberNote(touched.id, note, context, memory));
+      await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
     }
   }
 
@@ -66,6 +66,7 @@ export async function recordTouch(input: {
 }
 
 async function rememberNote(
+  userId: string,
   contactId: string,
   note: string,
   context: Parameters<RelationshipMemory["remember"]>[1],
@@ -73,13 +74,11 @@ async function rememberNote(
 ) {
   try {
     const processed = await memory.remember(note, context);
-    await prisma.contact.update({
-      where: { id: contactId },
-      data: {
-        aiSummary: processed.summary,
-        keyTopics: stringifyStoredStringArray(processed.keyTopics),
-        followUps: stringifyStoredStringArray(processed.followUps),
-      },
+    // A contact deleted while the AI was working is simply skipped (null).
+    await contactsOf(userId).update(contactId, {
+      aiSummary: processed.summary,
+      keyTopics: stringifyStoredStringArray(processed.keyTopics),
+      followUps: stringifyStoredStringArray(processed.followUps),
     });
   } catch (error) {
     // Keep the existing summary, topics and follow-ups on any AI failure.

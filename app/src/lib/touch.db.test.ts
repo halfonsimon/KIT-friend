@@ -171,4 +171,25 @@ describe("recordTouch", () => {
     await deferred[0]();
     expect((await contactsOf(alice.id).get(friend.id))?.aiSummary).toBe("Likes coffee.");
   });
+
+  it("skips the memory update quietly if the contact was deleted in the meantime", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const deferred: (() => Promise<void>)[] = [];
+
+    await recordTouch({
+      userId: alice.id,
+      contactId: friend.id,
+      note: "Coffee",
+      now: NOW,
+      memory: fakeRelationshipMemory(),
+      defer: (task) => {
+        deferred.push(task);
+      },
+    });
+    await contactsOf(alice.id).remove(friend.id);
+
+    await expect(deferred[0]()).resolves.toBeUndefined();
+    expect(await prisma.contact.count()).toBe(0);
+  });
 });
