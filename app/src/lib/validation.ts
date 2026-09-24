@@ -24,7 +24,10 @@ export const ContactFormSchema = z.object({
       z
         .string()
         .trim()
-        .transform((s) => (s === "" ? undefined : parseInt(s) || undefined)),
+        .transform((s) => {
+          const n = parseInt(s, 10);
+          return Number.isNaN(n) ? undefined : n;
+        }),
       z.number(),
       z.undefined(),
     ])
