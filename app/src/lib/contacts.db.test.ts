@@ -50,6 +50,58 @@ describe("contactsOf", () => {
     expect(await contactsOf(alice.id).get(second.id)).toMatchObject({ name: "Second", intervalDays: 7 });
   });
 
+  it("creates a contact with the user's default interval for its category when none is given", async () => {
+    const alice = await createUser("alice@example.com");
+    await prisma.setting.create({ data: { userId: alice.id, defaultWorkDays: 10 } });
+
+    const created = await contactsOf(alice.id).create({
+      name: "Colleague",
+      phone: null,
+      category: "WORK",
+      intervalDays: null,
+      isActive: true,
+    });
+
+    expect(created).toMatchObject({ name: "Colleague", intervalDays: 10, userId: alice.id });
+  });
+
+  it("falls back to the built-in default interval when the user has no settings", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const created = await contactsOf(alice.id).create({
+      name: "Cousin",
+      phone: null,
+      category: "FAMILY",
+      intervalDays: null,
+      isActive: true,
+    });
+
+    expect(created.intervalDays).toBe(7);
+  });
+
+  it("keeps an explicit interval", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const created = await contactsOf(alice.id).create({
+      name: "Friend",
+      phone: null,
+      category: "FRIEND",
+      intervalDays: 45,
+      isActive: true,
+    });
+
+    expect(created.intervalDays).toBe(45);
+  });
+
+  it("resets an updated contact to the default interval for its new category", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+
+    const updated = await contactsOf(alice.id).update(friend.id, { category: "WORK", intervalDays: null });
+
+    expect(updated?.intervalDays).toBe(14);
+  });
+
   it("removes a contact together with its interactions", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
