@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       const userSettings = await prisma.setting.findUnique({ where: { userId } });
       const email = userSettings?.digestEmail || session.user.email;
 
-      const data = await buildDigest(new Date(), userId);
+      const data = await buildDigest(userId);
       const { subject, html } = renderDigestEmail(data);
       const result = await sendDigestSMTP([email], subject, html);
 
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const data = await buildDigest(new Date(), target.userId);
+      const data = await buildDigest(target.userId);
       const { subject, html } = renderDigestEmail(data);
 
       try {

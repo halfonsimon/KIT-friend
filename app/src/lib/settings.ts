@@ -21,8 +21,19 @@ const FALLBACK = {
 
 export type AppSettings = typeof FALLBACK;
 
-export async function getSettings(userId: string): Promise<AppSettings> {
-  const row = await prisma.setting.findUnique({ where: { userId } });
+export type SettingRow = {
+  upcomingCount: number | null;
+  defaultFamilyDays: number | null;
+  defaultFriendDays: number | null;
+  defaultWorkDays: number | null;
+  defaultOtherDays: number | null;
+  sendEmailDigest: boolean | null;
+  digestTime: string | null;
+  digestEmail: string | null;
+};
+
+/** Apply defaults and clamping to a Setting row that may not exist yet. */
+export function settingsFromRow(row: SettingRow | null): AppSettings {
   if (!row) return FALLBACK;
   return {
     upcomingCount: Math.max(0, row.upcomingCount ?? FALLBACK.upcomingCount),
@@ -44,10 +55,15 @@ export async function getSettings(userId: string): Promise<AppSettings> {
         row.defaultOtherDays ?? FALLBACK.defaultsByCategory.OTHER
       ),
     },
-    sendEmailDigest: !!row.sendEmailDigest,
+    sendEmailDigest: row.sendEmailDigest ?? FALLBACK.sendEmailDigest,
     digestTime: row.digestTime ?? FALLBACK.digestTime,
     digestEmail: row.digestEmail ?? null,
   };
+}
+
+export async function getSettings(userId: string): Promise<AppSettings> {
+  const row = await prisma.setting.findUnique({ where: { userId } });
+  return settingsFromRow(row);
 }
 
 export function defaultIntervalFor(

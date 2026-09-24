@@ -131,7 +131,7 @@ function Section({
 
 export default async function DigestPage() {
   const userId = await requireUser();
-  const data = await buildDigest(new Date(), userId);
+  const data = await buildDigest(userId);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
