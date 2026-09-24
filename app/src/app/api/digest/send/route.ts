@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildDigest } from "@/lib/digest";
 import { renderDigestEmail } from "@/lib/email";
-import { sendDigestSMTP } from "@/lib/mailer";
+import { smtpMailer } from "@/lib/mailer";
+import { sendTestDigest } from "@/lib/digest-delivery";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -56,19 +57,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
       }
 
-      const userId = session.user.id;
-      const userSettings = await prisma.setting.findUnique({ where: { userId } });
-      const email = userSettings?.digestEmail || session.user.email;
-
-      const data = await buildDigest(userId);
-      const { subject, html } = renderDigestEmail(data);
-      const result = await sendDigestSMTP([email], subject, html);
+      const result = await sendTestDigest({
+        userId: session.user.id,
+        accountEmail: session.user.email,
+        now: new Date(),
+        mailer: smtpMailer(),
+      });
 
       return NextResponse.json({
         ok: true,
-        sent: [email],
+        sent: [result.recipient],
         messageId: result.messageId,
-        stats: data.stats,
+        stats: result.stats,
       });
     }
 
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
       const { subject, html } = renderDigestEmail(data);
 
       try {
-        const result = await sendDigestSMTP([target.email], subject, html);
+        const result = await smtpMailer().send({ to: [target.email], subject, html });
 
         if (target.settingId) {
           await prisma.setting.update({

@@ -16,11 +16,11 @@ vi.mock("nodemailer", () => {
 });
 
 import nodemailer from "nodemailer";
-import { sendDigestSMTP } from "./mailer";
+import { smtpMailer } from "./mailer";
 
 const OLD_ENV = process.env;
 
-describe("sendDigestSMTP", () => {
+describe("smtpMailer", () => {
   beforeEach(() => {
     process.env = { ...OLD_ENV };
     process.env.SMTP_HOST = "smtp.example.com";
@@ -31,11 +31,11 @@ describe("sendDigestSMTP", () => {
   });
 
   it("creates a transport and sends with correct fields", async () => {
-    const res = await sendDigestSMTP(
-      ["alice@example.com", "bob@example.com"],
-      "Daily digest",
-      "<p>Hello</p>"
-    );
+    const res = await smtpMailer().send({
+      to: ["alice@example.com", "bob@example.com"],
+      subject: "Daily digest",
+      html: "<p>Hello</p>",
+    });
 
     expect(res.messageId).toBe("test-id");
 
@@ -59,7 +59,9 @@ describe("sendDigestSMTP", () => {
 
   it("throws if SMTP env is missing", async () => {
     delete process.env.SMTP_PASS;
-    await expect(sendDigestSMTP(["a@ex.com"], "S", "<p>x</p>")).rejects.toThrow(
+    await expect(
+      smtpMailer().send({ to: ["a@ex.com"], subject: "S", html: "<p>x</p>" })
+    ).rejects.toThrow(
       /SMTP env vars missing/i
     );
   });
