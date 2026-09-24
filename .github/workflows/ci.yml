@@ -103,7 +103,13 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
-    # Same ports as docker-compose.test.yml, so the e2e defaults work unchanged.
+    # Host ports stay below Linux's ephemeral range (32768-60999): a fixed port
+    # inside it can already be taken by an outgoing connection, and the service
+    # container then fails to start ("address already in use").
+    env:
+      E2E_DATABASE_URL: postgresql://kit:kit@localhost:5432/kit_friend_e2e_test
+      MAILPIT_URL: http://localhost:8025
+      MAILPIT_SMTP_PORT: "1025"
     services:
       postgres:
         image: postgres:16-alpine
@@ -112,7 +118,7 @@ jobs:
           POSTGRES_PASSWORD: kit
           POSTGRES_DB: kit_friend_e2e_test
         ports:
-          - 54329:5432
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U kit -d kit_friend_e2e_test"
           --health-interval 2s
@@ -124,8 +130,8 @@ jobs:
           MP_SMTP_AUTH_ACCEPT_ANY: "1"
           MP_SMTP_AUTH_ALLOW_INSECURE: "1"
         ports:
-          - 54325:1025
-          - 54380:8025
+          - 1025:1025
+          - 8025:8025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
