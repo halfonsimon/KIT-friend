@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -49,6 +49,11 @@ declare global {
   }
 }
 
+const subscribeNoop = () => () => {};
+const getSpeechSupportedSnapshot = () =>
+  !!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
+const getSpeechSupportedServerSnapshot = () => false;
+
 type Props = {
   contactName: string;
   isOpen: boolean;
@@ -66,14 +71,18 @@ export default function TouchModal({
 }: Props) {
   const [note, setNote] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const speechSupported = useSyncExternalStore(
+    subscribeNoop,
+    getSpeechSupportedSnapshot,
+    getSpeechSupportedServerSnapshot
+  );
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
   useEffect(() => {
     const SpeechRecognitionAPI =
       window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    setSpeechSupported(!!SpeechRecognitionAPI);
 
     if (SpeechRecognitionAPI) {
       const recognition: ISpeechRecognition = new SpeechRecognitionAPI();
@@ -115,16 +124,21 @@ export default function TouchModal({
     };
   }, []);
 
+  // Reset local state when the modal closes (adjust-state-during-render pattern).
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) {
+      setNote("");
+      setIsListening(false);
+    }
+  }
+
   useEffect(() => {
     if (isOpen && textareaRef.current) {
       textareaRef.current.focus();
     }
-    if (!isOpen) {
-      setNote("");
-      setIsListening(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
+    if (!isOpen && recognitionRef.current) {
+      recognitionRef.current.stop();
     }
   }, [isOpen]);
 
