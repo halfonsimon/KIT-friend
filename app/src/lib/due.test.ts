@@ -8,6 +8,7 @@ const mk = (
 ): ContactLike => ({
   id: p.id,
   name: p.name,
+  phone: p.phone ?? null,
   intervalDays: p.intervalDays ?? 30,
   createdAt: p.createdAt ?? "2025-09-10T00:00:00Z",
   lastContactedAt: p.lastContactedAt ?? null,
