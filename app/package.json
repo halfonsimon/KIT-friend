@@ -9,7 +9,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest"
+    "test": "vitest",
+    "test:unit": "vitest --project unit",
+    "test:db": "vitest --project db",
+    "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:db:down": "docker compose -f docker-compose.test.yml down"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
