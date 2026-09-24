@@ -9,12 +9,11 @@
 import { NextResponse } from "next/server";
 import { after } from "next/server";
 import { prisma } from "@/lib/db";
-import { computeStatus } from "@/lib/due";
+import { recordTouch } from "@/lib/touch";
 import { processInteractionNote } from "@/lib/ai";
 import {
   buildContactContext,
   stringifyStoredStringArray,
-  toContactLike,
 } from "@/lib/contact";
 import { auth } from "@/auth";
 
@@ -49,51 +48,29 @@ export async function POST(
       // No body or invalid JSON is fine - note is optional
     }
 
-    // Verify ownership before updating
-    const owned = await prisma.contact.findFirst({ where: { id, userId } });
-    if (!owned) {
+    const result = await recordTouch({ userId, contactId: id, note, now: new Date() });
+    if (!result) {
       return NextResponse.json({ ok: false, error: "Contact not found" }, { status: 404 });
     }
 
-    const updated = await prisma.contact.update({
-      where: { id },
-      data: { lastContactedAt: new Date() },
-      include: {
-        interactions: {
-          orderBy: { notedAt: "desc" },
-          take: 10,
-        },
-      },
-    });
-
     if (note) {
-      await prisma.interaction.create({
-        data: {
-          contactId: id,
-          note,
-          notedAt: new Date(),
-        },
-      });
-
       if (process.env.GEMINI_API_KEY) {
         after(async () => {
-          await processNoteWithAI(id, note, updated);
+          await processNoteWithAI(id, note);
         });
       } else {
         console.log("Skipping AI processing - GEMINI_API_KEY not configured");
       }
     }
 
-    const computed = computeStatus(toContactLike(updated), new Date());
-
     return NextResponse.json({
       ok: true,
       data: {
-        id: updated.id,
-        lastContactedAt: updated.lastContactedAt,
-        status: computed.status,
-        daysUntilDue: computed.daysUntilDue,
-        nextDueAt: computed.nextDueAt.toISOString(),
+        id: result.id,
+        lastContactedAt: result.lastContactedAt,
+        status: result.status,
+        daysUntilDue: result.daysUntilDue,
+        nextDueAt: result.nextDueAt.toISOString(),
       },
     });
   } catch (err) {
@@ -116,19 +93,12 @@ export async function POST(
   }
 }
 
-async function processNoteWithAI(
-  contactId: string,
-  note: string,
-  contact: {
-    name: string;
-    category: string;
-    aiSummary: string | null;
-    keyTopics: string | null;
-    followUps: string | null;
-    interactions: { note: string | null; notedAt: Date }[];
-  }
-) {
+async function processNoteWithAI(contactId: string, note: string) {
   try {
+    const contact = await prisma.contact.findUniqueOrThrow({
+      where: { id: contactId },
+      include: { interactions: { orderBy: { notedAt: "desc" }, skip: 1, take: 10 } },
+    });
     console.log(`Processing AI for contact ${contactId}...`);
     
     const processed = await processInteractionNote(
