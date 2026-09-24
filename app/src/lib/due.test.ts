@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStatus, groupForDigest, badgeText, type ContactLike, type Computed } from "./due";
+import { computeStatus, groupForDigest, statusLabel, type ContactLike } from "./due";
 
 const NOW = new Date("2025-09-16T12:00:00Z"); // midday to ignore time-of-day effects
 
@@ -153,26 +153,16 @@ describe("groupForDigest", () => {
   });
 });
 
-describe("badgeText", () => {
-  it("formats badge text correctly", () => {
-    const overdue: Computed = {
-      status: "overdue",
-      daysUntilDue: -3,
-      nextDueAt: new Date("2025-09-10T00:00:00Z"),
-    };
-    const today: Computed = {
-      status: "today",
-      daysUntilDue: 0,
-      nextDueAt: new Date("2025-09-16T00:00:00Z"),
-    };
-    const ok: Computed = {
-      status: "ok",
-      daysUntilDue: 2,
-      nextDueAt: new Date("2025-09-18T00:00:00Z"),
-    };
+describe("statusLabel", () => {
+  it("says how many days overdue", () => {
+    expect(statusLabel({ status: "overdue", daysUntilDue: -3 })).toBe("3d overdue");
+  });
 
-    expect(badgeText(overdue)).toBe("Overdue by 3d");
-    expect(badgeText(today)).toBe("Today");
-    expect(badgeText(ok)).toBe("In 2d");
+  it("says due today", () => {
+    expect(statusLabel({ status: "today", daysUntilDue: 0 })).toBe("Due today");
+  });
+
+  it("says how many days are left", () => {
+    expect(statusLabel({ status: "ok", daysUntilDue: 2 })).toBe("2d left");
   });
 });

@@ -150,12 +150,11 @@ export function groupForDigest(
   return { overdue, today, upcoming };
 }
 
-/* ========== Badge helper for UI ========== */
+/* ========== Status label ========== */
 
-// generate a badge text for a contact
-export function badgeText(c: Computed): string {
-  // Short, human-friendly labels for cards or lists
-  if (c.status === "overdue") return `Overdue by ${Math.abs(c.daysUntilDue)}d`;
-  if (c.status === "today") return "Today";
-  return `In ${c.daysUntilDue}d`;
+// The words shown for a status everywhere: contact badges, the digest page and the digest email
+export function statusLabel(c: Pick<Computed, "status" | "daysUntilDue">): string {
+  if (c.status === "overdue") return `${Math.abs(c.daysUntilDue)}d overdue`;
+  if (c.status === "today") return "Due today";
+  return `${c.daysUntilDue}d left`;
 }
