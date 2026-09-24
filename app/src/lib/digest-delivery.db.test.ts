@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { fakeMailer } from "@/test/fake-mailer";
 import { runScheduledDigests, sendTestDigest } from "./digest-delivery";
+import { getSettings, saveSettings } from "./settings";
 
 const NOW = new Date("2026-03-10T12:00:00Z");
 
@@ -92,6 +93,16 @@ describe("runScheduledDigests", () => {
     ]);
     const setting = await prisma.setting.findUnique({ where: { userId: alice.id } });
     expect(setting?.lastEmailDigestAt).toEqual(now);
+  });
+
+  it("sends to the digest email the user saved in settings", async () => {
+    const alice = await createUser("alice@example.com");
+    await saveSettings(alice.id, { ...(await getSettings(alice.id)), digestEmail: "alice+digest@example.com" });
+    const mailer = fakeMailer();
+
+    await runScheduledDigests({ now: at("2026-03-10T06:00:00Z"), mailer });
+
+    expect(mailer.sent.map((m) => m.to)).toEqual([["alice+digest@example.com"]]);
   });
 
   it("reports not_time_yet outside the window and sends nothing", async () => {

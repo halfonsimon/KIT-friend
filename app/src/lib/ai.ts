@@ -11,6 +11,21 @@ export type ProcessedNote = {
   summary: string;
 };
 
+/**
+ * Relationship memory: merges a new interaction note into a contact's running
+ * summary, key topics and follow-up questions. Gemini in production, a fake in
+ * tests. May throw; the Touch module keeps the stored memory on failure.
+ */
+export type RelationshipMemory = {
+  remember(note: string, context: ContactContext): Promise<ProcessedNote>;
+};
+
+/** Relationship memory backed by Gemini, or `undefined` when no API key is configured. */
+export function geminiMemory(): RelationshipMemory | undefined {
+  if (!process.env.GEMINI_API_KEY) return undefined;
+  return { remember: processInteractionNote };
+}
+
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -59,8 +74,9 @@ Keep the tone professional but personable.`;
 
 /**
  * Process a new interaction note and generate updated summary, topics, and questions to ask.
+ * Throws if Gemini fails or answers with something that isn't the expected JSON.
  */
-export async function processInteractionNote(
+async function processInteractionNote(
   newNote: string,
   context: ContactContext,
 ): Promise<ProcessedNote> {
@@ -104,32 +120,23 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "summary": "The summary text here."
 }`;
 
-  try {
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const content = response.text();
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const content = response.text();
 
-    if (!content) {
-      throw new Error("No response from AI");
-    }
-
-    const cleanedContent = content.replace(/```json\n?|\n?```/g, "").trim();
-    const parsed = JSON.parse(cleanedContent) as ProcessedNote;
-
-    return {
-      keyTopics: Array.isArray(parsed.keyTopics) ? parsed.keyTopics : [],
-      followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
-      summary: typeof parsed.summary === "string" ? parsed.summary : "",
-    };
-  } catch (error) {
-    console.error("AI processing error:", error);
-    return {
-      keyTopics: context.existingTopics,
-      followUps: context.existingFollowUps,
-      summary: context.existingSummary || "",
-    };
+  if (!content) {
+    throw new Error("No response from AI");
   }
+
+  const cleanedContent = content.replace(/```json\n?|\n?```/g, "").trim();
+  const parsed = JSON.parse(cleanedContent) as ProcessedNote;
+
+  return {
+    keyTopics: Array.isArray(parsed.keyTopics) ? parsed.keyTopics : [],
+    followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
+    summary: typeof parsed.summary === "string" ? parsed.summary : "",
+  };
 }

@@ -1,12 +1,10 @@
 // src/lib/digest.ts
 // Build the daily digest from the DB using the same due logic as the list page.
 
-import { prisma } from "./db";
-import { computeStatus, type ContactLike } from "./due";
+import { type Status } from "./due";
+import { roster } from "./roster";
 import { getSettings } from "./settings";
 import type { Category } from "./contact";
-
-export type Status = "overdue" | "today" | "ok";
 
 export type DigestItem = {
   id: string;
@@ -21,67 +19,31 @@ export type DigestItem = {
 export type DigestData = {
   overdue: DigestItem[];
   today: DigestItem[];
-  // Up to 2 soonest "ok" items
+  // The first `upcomingCount` "ok" items (from settings)
   upcoming: DigestItem[];
   stats: { overdue: number; today: number; upcoming: number; total: number };
 };
 
-/** Helper: sort by next due (earliest first). */
-function byNextDue(a: DigestItem, b: DigestItem) {
-  return a.nextDueAt.getTime() - b.nextDueAt.getTime();
-}
-
 /** Build one user's digest for a given moment. */
 export async function buildDigest(userId: string, now: Date = new Date()): Promise<DigestData> {
-  const [settings, rows] = await Promise.all([
+  const [settings, contacts] = await Promise.all([
     getSettings(userId),
-    prisma.contact.findMany({
-      where: { userId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        category: true,
-        intervalDays: true,
-        createdAt: true,
-        lastContactedAt: true,
-      },
-    }),
+    roster(userId, now, { activeOnly: true }),
   ]);
 
-  // 2) Compute status for each using the shared due logic
-  const items: DigestItem[] = rows.map((c) => {
-    const base: ContactLike = {
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      intervalDays: c.intervalDays,
-      createdAt: c.createdAt,
-      lastContactedAt: c.lastContactedAt ?? undefined,
-    };
-    const s = computeStatus(base, now);
-    return {
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      category: c.category as Category,
-      status: s.status as Status,
-      daysUntilDue: s.daysUntilDue,
-      nextDueAt: s.nextDueAt,
-    };
-  });
+  const items: DigestItem[] = contacts.map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    category: c.category,
+    status: c.status,
+    daysUntilDue: c.daysUntilDue,
+    nextDueAt: c.nextDueAt,
+  }));
 
-  // 3) Sort globally by next due, then split by status
-  items.sort(byNextDue);
   const overdue = items.filter((i) => i.status === "overdue");
   const today = items.filter((i) => i.status === "today");
-  const ok = items.filter((i) => i.status === "ok");
-
-  // 4) Upcoming = first N "ok" (from settings)
-  const upcoming = ok.slice(0, settings.upcomingCount);
-
-  // 5) Stats
-  const shown = [...overdue, ...today, ...upcoming];
+  const upcoming = items.filter((i) => i.status === "ok").slice(0, settings.upcomingCount);
 
   return {
     overdue,
@@ -91,7 +53,7 @@ export async function buildDigest(userId: string, now: Date = new Date()): Promi
       overdue: overdue.length,
       today: today.length,
       upcoming: upcoming.length,
-      total: shown.length,
+      total: overdue.length + today.length + upcoming.length,
     },
   };
 }

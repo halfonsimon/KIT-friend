@@ -1,6 +1,6 @@
 // src/app/(app)/settings/page.tsx
 import { getSettings } from "@/lib/settings";
-import { updateSettings } from "./actions";
+import { SettingsForm, FieldError } from "./SettingsForm";
 import { requireUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <form action={updateSettings} className="space-y-8">
+      <SettingsForm>
         {/* Digest Settings */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="p-6">
@@ -56,6 +56,7 @@ export default async function SettingsPage() {
                   defaultValue={s.upcomingCount}
                   className="w-32 rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
                 />
+                <FieldError field="upcomingCount" />
                 <p className="mt-1 text-xs text-slate-500">
                   How many upcoming contacts to show in emails and previews
                 </p>
@@ -93,12 +94,35 @@ export default async function SettingsPage() {
                     defaultValue={s.digestTime}
                     className="w-40 rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
                   />
+                  <FieldError field="digestTime" />
                   <p className="mt-1 text-xs text-slate-500">
                     Time when the daily digest will be sent (24-hour format)
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     Keep your scheduler aligned with this time in your deploy
                     environment.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="digestEmail"
+                    className="block text-sm font-semibold text-slate-900 mb-2"
+                  >
+                    Send digest to
+                  </label>
+                  <input
+                    id="digestEmail"
+                    type="email"
+                    name="digestEmail"
+                    defaultValue={s.digestEmail ?? ""}
+                    placeholder="Your account email"
+                    aria-describedby="digestEmail-help"
+                    className="w-full max-w-sm rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                  />
+                  <FieldError field="digestEmail" />
+                  <p id="digestEmail-help" className="mt-1 text-xs text-slate-500">
+                    Leave blank to send the digest to your account email.
                   </p>
                 </div>
               </div>
@@ -154,29 +178,33 @@ export default async function SettingsPage() {
               {[
                 {
                   key: "family",
+                  category: "FAMILY",
                   label: "Family",
                   value: s.defaultsByCategory.FAMILY,
                   color: "bg-red-100 text-red-700",
                 },
                 {
                   key: "friend",
+                  category: "FRIEND",
                   label: "Friend",
                   value: s.defaultsByCategory.FRIEND,
                   color: "bg-blue-100 text-blue-700",
                 },
                 {
                   key: "work",
+                  category: "WORK",
                   label: "Work",
                   value: s.defaultsByCategory.WORK,
                   color: "bg-purple-100 text-purple-700",
                 },
                 {
                   key: "other",
+                  category: "OTHER",
                   label: "Other",
                   value: s.defaultsByCategory.OTHER,
                   color: "bg-gray-100 text-gray-700",
                 },
-              ].map(({ key, label, value, color }) => (
+              ].map(({ key, category, label, value, color }) => (
                 <div key={key} className="space-y-3">
                   <div className="flex items-center gap-2">
                     <span
@@ -197,6 +225,7 @@ export default async function SettingsPage() {
                       defaultValue={value}
                       className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
                     />
+                    <FieldError field={`defaultsByCategory.${category}`} />
                   </div>
                 </div>
               ))}
@@ -246,7 +275,7 @@ export default async function SettingsPage() {
             Save Settings
           </button>
         </div>
-      </form>
+      </SettingsForm>
     </div>
   );
 }

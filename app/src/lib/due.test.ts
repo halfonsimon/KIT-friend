@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStatus, groupForDigest, badgeText, type ContactLike, type Computed } from "./due";
+import { computeStatus, statusLabel, type ContactLike } from "./due";
 
 const NOW = new Date("2025-09-16T12:00:00Z"); // midday to ignore time-of-day effects
 
@@ -121,58 +121,16 @@ describe("computeStatus", () => {
   });
 });
 
-describe("groupForDigest", () => {
-  it("groups as Overdue → Today → Upcoming (≤2), sorted by due date", () => {
-    const contacts: ContactLike[] = [
-      mk({
-        id: "1",
-        name: "Over",
-        intervalDays: 7,
-        createdAt: "2025-09-01",
-        lastContactedAt: "2025-09-06",
-      }), // due 13 → overdue
-      mk({
-        id: "2",
-        name: "Today",
-        intervalDays: 3,
-        createdAt: "2025-09-10",
-        lastContactedAt: "2025-09-13",
-      }), // due 16 → today
-      mk({ id: "3", name: "U3", intervalDays: 5, createdAt: "2025-09-14" }), // due 19 → in 3
-      mk({ id: "4", name: "U1", intervalDays: 2, createdAt: "2025-09-15" }), // due 17 → in 1
-      mk({ id: "5", name: "U2", intervalDays: 3, createdAt: "2025-09-15" }), // due 18 → in 2
-    ];
-
-    const g = groupForDigest(contacts, NOW);
-
-    expect(g.overdue.map((x) => x.name)).toEqual(["Over"]); // all overdue
-    expect(g.today.map((x) => x.name)).toEqual(["Today"]); // all today
-
-    // upcoming sorted asc, capped at 2 → ["U1","U2"] (17th then 18th)
-    expect(g.upcoming.map((x) => x.name)).toEqual(["U1", "U2"]);
+describe("statusLabel", () => {
+  it("says how many days overdue", () => {
+    expect(statusLabel({ status: "overdue", daysUntilDue: -3 })).toBe("3d overdue");
   });
-});
 
-describe("badgeText", () => {
-  it("formats badge text correctly", () => {
-    const overdue: Computed = {
-      status: "overdue",
-      daysUntilDue: -3,
-      nextDueAt: new Date("2025-09-10T00:00:00Z"),
-    };
-    const today: Computed = {
-      status: "today",
-      daysUntilDue: 0,
-      nextDueAt: new Date("2025-09-16T00:00:00Z"),
-    };
-    const ok: Computed = {
-      status: "ok",
-      daysUntilDue: 2,
-      nextDueAt: new Date("2025-09-18T00:00:00Z"),
-    };
+  it("says due today", () => {
+    expect(statusLabel({ status: "today", daysUntilDue: 0 })).toBe("Due today");
+  });
 
-    expect(badgeText(overdue)).toBe("Overdue by 3d");
-    expect(badgeText(today)).toBe("Today");
-    expect(badgeText(ok)).toBe("In 2d");
+  it("says how many days are left", () => {
+    expect(statusLabel({ status: "ok", daysUntilDue: 2 })).toBe("2d left");
   });
 });

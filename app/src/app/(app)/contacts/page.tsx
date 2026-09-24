@@ -6,58 +6,12 @@ import StatusBadge from "@/components/StatusBadge";
 import TouchButton from "@/components/TouchButton";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteContact } from "./actions";
-import { prisma } from "@/lib/db";
-import { type Category, toContactLike } from "@/lib/contact";
-import { computeStatus } from "@/lib/due";
+import { roster } from "@/lib/roster";
 import { requireUser } from "@/lib/auth-utils";
-
-type ContactRow = {
-  id: string;
-  name: string;
-  category: Category;
-  status: "overdue" | "today" | "ok";
-  daysUntilDue: number;
-  nextDueAt: Date;
-  hasAiSummary: boolean;
-};
-
-async function getContacts(userId: string): Promise<ContactRow[]> {
-  const contacts = await prisma.contact.findMany({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const now = new Date();
-  const rows = contacts.map((c) => {
-    const computed = computeStatus(toContactLike(c), now);
-    return {
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      status: computed.status,
-      daysUntilDue: computed.daysUntilDue,
-      nextDueAt: computed.nextDueAt,
-      hasAiSummary: !!c.aiSummary,
-    };
-  });
-
-  const order: Record<"overdue" | "today" | "ok", number> = {
-    overdue: 0,
-    today: 1,
-    ok: 2,
-  };
-  rows.sort((a, b) => {
-    const s = order[a.status] - order[b.status];
-    if (s !== 0) return s;
-    return a.nextDueAt.getTime() - b.nextDueAt.getTime();
-  });
-
-  return rows;
-}
 
 export default async function ContactsPage() {
   const userId = await requireUser();
-  const rows = await getContacts(userId);
+  const rows = await roster(userId, new Date());
 
   return (
     <div className="space-y-8">

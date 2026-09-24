@@ -3,11 +3,15 @@
  * sends it through a Mailer, and records the send. Takes `now` and the Mailer
  * as inputs so the rules can be tested without a clock or SMTP.
  */
-import { prisma } from "./db";
 import { buildDigest, type DigestData } from "./digest";
 import { renderDigestEmail } from "./email";
 import type { Mailer } from "./mailer";
-import { getSettings, settingsFromRow, type AppSettings } from "./settings";
+import {
+  everyUsersSettings,
+  getSettings,
+  recordDigestSent,
+  type AppSettings,
+} from "./settings";
 
 /** Where a user's digest goes: their digest email if set, else their account email. */
 function recipientFor(settings: AppSettings, accountEmail: string): string {
@@ -74,43 +78,34 @@ export async function runScheduledDigests(input: {
   now: Date;
   mailer: Mailer;
 }): Promise<DigestOutcome[]> {
-  const users = await prisma.user.findMany({
-    select: { id: true, email: true, setting: true },
-  });
+  const users = await everyUsersSettings();
 
   const outcomes: DigestOutcome[] = [];
-  for (const user of users) {
-    const settings = settingsFromRow(user.setting);
+  for (const { userId, accountEmail, settings, lastDigestSentAt } of users) {
     if (!settings.sendEmailDigest) continue;
-    const email = recipientFor(settings, user.email);
+    const email = recipientFor(settings, accountEmail);
     if (!email) {
-      outcomes.push({ userId: user.id, email: "", status: "skipped_no_email" });
+      outcomes.push({ userId, email: "", status: "skipped_no_email" });
       continue;
     }
 
-    const lastSent = user.setting?.lastEmailDigestAt;
-    if (lastSent && utcDay(lastSent) === utcDay(input.now)) {
-      outcomes.push({ userId: user.id, email, status: "already_sent_today" });
+    if (lastDigestSentAt && utcDay(lastDigestSentAt) === utcDay(input.now)) {
+      outcomes.push({ userId, email, status: "already_sent_today" });
       continue;
     }
 
     if (!isWithinWindow(settings.digestTime, input.now)) {
-      outcomes.push({ userId: user.id, email, status: "not_time_yet" });
+      outcomes.push({ userId, email, status: "not_time_yet" });
       continue;
     }
 
     try {
-      const { messageId } = await sendDigest(user.id, email, input.now, input.mailer);
-
-      await prisma.setting.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, lastEmailDigestAt: input.now },
-        update: { lastEmailDigestAt: input.now },
-      });
-      outcomes.push({ userId: user.id, email, status: "sent", messageId });
+      const { messageId } = await sendDigest(userId, email, input.now, input.mailer);
+      await recordDigestSent(userId, input.now);
+      outcomes.push({ userId, email, status: "sent", messageId });
     } catch (err) {
       console.error(`Failed to send digest to ${email}:`, err);
-      outcomes.push({ userId: user.id, email, status: "error" });
+      outcomes.push({ userId, email, status: "error" });
     }
   }
   return outcomes;

@@ -3,6 +3,7 @@
  * Each user has their own settings row, keyed by userId.
  * Falls back to sensible defaults if no settings exist.
  */
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import type { Category } from "@/lib/contact";
 
@@ -21,7 +22,7 @@ const FALLBACK = {
 
 export type AppSettings = typeof FALLBACK;
 
-export type SettingRow = {
+type SettingRow = {
   upcomingCount: number | null;
   defaultFamilyDays: number | null;
   defaultFriendDays: number | null;
@@ -33,7 +34,7 @@ export type SettingRow = {
 };
 
 /** Apply defaults and clamping to a Setting row that may not exist yet. */
-export function settingsFromRow(row: SettingRow | null): AppSettings {
+function settingsFromRow(row: SettingRow | null): AppSettings {
   if (!row) return FALLBACK;
   return {
     upcomingCount: Math.max(0, row.upcomingCount ?? FALLBACK.upcomingCount),
@@ -64,6 +65,82 @@ export function settingsFromRow(row: SettingRow | null): AppSettings {
 export async function getSettings(userId: string): Promise<AppSettings> {
   const row = await prisma.setting.findUnique({ where: { userId } });
   return settingsFromRow(row);
+}
+
+const IntervalDays = z
+  .number({ error: "Enter a number of days" })
+  .int("Use whole days")
+  .min(1, "Must be between 1 and 365 days")
+  .max(365, "Must be between 1 and 365 days");
+
+/** The limits every saved setting must respect. */
+export const SettingsSchema = z.object({
+  upcomingCount: z
+    .number({ error: "Enter a number" })
+    .int("Use a whole number")
+    .min(0, "Must be between 0 and 50")
+    .max(50, "Must be between 0 and 50"),
+  defaultsByCategory: z.object({
+    FAMILY: IntervalDays,
+    FRIEND: IntervalDays,
+    WORK: IntervalDays,
+    OTHER: IntervalDays,
+  }),
+  sendEmailDigest: z.boolean(),
+  digestTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
+  digestEmail: z.email("Enter a valid email address, or leave it blank").nullable(),
+});
+
+/**
+ * Validate and save a user's settings. Throws a ZodError for values outside
+ * the limits. Never touches when the last digest was sent.
+ */
+export async function saveSettings(userId: string, settings: AppSettings): Promise<void> {
+  const s = SettingsSchema.parse(settings);
+  const columns = {
+    upcomingCount: s.upcomingCount,
+    defaultFamilyDays: s.defaultsByCategory.FAMILY,
+    defaultFriendDays: s.defaultsByCategory.FRIEND,
+    defaultWorkDays: s.defaultsByCategory.WORK,
+    defaultOtherDays: s.defaultsByCategory.OTHER,
+    sendEmailDigest: s.sendEmailDigest,
+    digestTime: s.digestTime,
+    digestEmail: s.digestEmail,
+  };
+  await prisma.setting.upsert({
+    where: { userId },
+    create: { userId, ...columns },
+    update: columns,
+  });
+}
+
+/** Record that a user's scheduled digest was sent at `at`. */
+export async function recordDigestSent(userId: string, at: Date): Promise<void> {
+  await prisma.setting.upsert({
+    where: { userId },
+    create: { userId, lastEmailDigestAt: at },
+    update: { lastEmailDigestAt: at },
+  });
+}
+
+export type UserSettings = {
+  userId: string;
+  accountEmail: string;
+  settings: AppSettings;
+  lastDigestSentAt: Date | null;
+};
+
+/** Every user's settings (with defaults applied) and when their last digest was sent. */
+export async function everyUsersSettings(): Promise<UserSettings[]> {
+  const users = await prisma.user.findMany({
+    select: { id: true, email: true, setting: true },
+  });
+  return users.map((u) => ({
+    userId: u.id,
+    accountEmail: u.email,
+    settings: settingsFromRow(u.setting),
+    lastDigestSentAt: u.setting?.lastEmailDigestAt ?? null,
+  }));
 }
 
 export function defaultIntervalFor(

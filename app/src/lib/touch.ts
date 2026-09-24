@@ -1,0 +1,87 @@
+/**
+ * Touch: record that the user just got in touch with a contact, optionally
+ * with a note. A note is also merged into the contact's Relationship memory
+ * (AI summary, key topics, follow-ups). Takes `now`, the memory adapter and a
+ * `defer` scheduler as inputs so it can be tested without a clock or Gemini.
+ */
+import type { RelationshipMemory } from "./ai";
+import { buildContactContext, stringifyStoredStringArray } from "./contact";
+import { contactsOf } from "./contacts-of";
+import { prisma } from "./db";
+import { computeStatus, type Computed } from "./due";
+
+export type TouchResult = Computed & {
+  id: string;
+  lastContactedAt: Date;
+};
+
+/** Runs work after the response: Next's `after()` in production. */
+export type Defer = (task: () => Promise<void>) => void | Promise<void>;
+
+const RECENT_INTERACTIONS = 10;
+
+/**
+ * Record a touch. Returns `null` when the contact is missing or not the user's.
+ * With a note and a memory adapter, updates the Relationship memory through
+ * `defer` (awaited inline by default). If the adapter fails, the stored
+ * memory is left unchanged.
+ */
+export async function recordTouch(input: {
+  userId: string;
+  contactId: string;
+  note: string;
+  now: Date;
+  memory?: RelationshipMemory;
+  defer?: Defer;
+}): Promise<TouchResult | null> {
+  const touched = await contactsOf(input.userId).update(input.contactId, {
+    lastContactedAt: input.now,
+  });
+  if (!touched) return null;
+
+  const note = input.note.trim();
+  if (note) {
+    const earlier = await prisma.interaction.findMany({
+      where: { contactId: touched.id },
+      orderBy: { notedAt: "desc" },
+      take: RECENT_INTERACTIONS,
+    });
+    await prisma.interaction.create({
+      data: { contactId: touched.id, note, notedAt: input.now },
+    });
+
+    const memory = input.memory;
+    if (memory) {
+      const context = buildContactContext({ ...touched, interactions: earlier });
+      const defer = input.defer ?? ((task) => task());
+      await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
+    }
+  }
+
+  return {
+    id: touched.id,
+    lastContactedAt: input.now,
+    ...computeStatus(touched, input.now),
+  };
+}
+
+async function rememberNote(
+  userId: string,
+  contactId: string,
+  note: string,
+  context: Parameters<RelationshipMemory["remember"]>[1],
+  memory: RelationshipMemory
+) {
+  try {
+    const processed = await memory.remember(note, context);
+    // A contact deleted while the AI was working is simply skipped (null).
+    await contactsOf(userId).update(contactId, {
+      aiSummary: processed.summary,
+      keyTopics: stringifyStoredStringArray(processed.keyTopics),
+      followUps: stringifyStoredStringArray(processed.followUps),
+    });
+  } catch (error) {
+    // Keep the existing summary, topics and follow-ups on any AI failure.
+    console.error(`Relationship memory update failed for contact ${contactId}:`, error);
+  }
+}

@@ -3,14 +3,10 @@
 
 import type { DigestData, DigestItem } from "./digest";
 import { formatDateUTC } from "./format";
+import { statusLabel } from "./due";
 
 function row(i: DigestItem) {
-  const label =
-    i.status === "overdue"
-      ? `Overdue by ${Math.abs(i.daysUntilDue)}d`
-      : i.status === "today"
-      ? "Today"
-      : `In ${i.daysUntilDue}d`;
+  const label = statusLabel(i);
   return `
     <tr>
       <td style="padding:8px 0;">

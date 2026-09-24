@@ -1,15 +1,15 @@
 // src/app/contacts/actions.ts
 // Server Actions for create/update contact. They validate input with Zod,
-// write via Prisma and then refresh/redirect the list page.
+// write through the per-user Contact module, then refresh/redirect the list page.
 
 "use server";
 
-import { prisma } from "@/lib/db";
-import { getSettings, defaultIntervalFor } from "@/lib/settings";
 import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { redirect } from "next/navigation";
+import { ZodError } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-utils";
+import { contactsOf } from "@/lib/contacts-of";
 
 export type ActionState = {
   ok: boolean;
@@ -51,6 +51,30 @@ function readForm(fd: FormData): ContactFormInput {
   return ContactFormSchema.parse(data);
 }
 
+// Map a validated form to contact fields; a blank interval means "category default"
+function toContactFields(input: ContactFormInput) {
+  return {
+    name: input.name,
+    phone: input.phone ?? null,
+    category: input.category,
+    intervalDays: input.intervalDays ?? null,
+    isActive: input.isActive,
+  };
+}
+
+// Turn a thrown error into form state: field errors for invalid input, else a generic message
+function toErrorState(err: unknown, action: string): ActionState {
+  if (err instanceof ZodError) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of err.issues) {
+      fieldErrors[issue.path.map(String).join(".") || "form"] = issue.message;
+    }
+    return { ok: false, fieldErrors };
+  }
+  console.error(`${action} error:`, err);
+  return { ok: false, message: "Server error. Please try again." };
+}
+
 export async function createContact(
   _prev: ActionState | null,
   formData: FormData
@@ -59,43 +83,13 @@ export async function createContact(
     const userId = await requireUser();
     const input = readForm(formData);
 
-    const settings = await getSettings(userId);
-    const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
-
-    await prisma.contact.create({
-      data: {
-        name: input.name,
-        phone: input.phone ?? null,
-        category: input.category,
-        intervalDays,
-        isActive: input.isActive,
-        userId,
-      },
-    });
+    await contactsOf(userId).create(toContactFields(input));
     // Ensure /contacts shows fresh data, then navigate
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {
     if (isNextRedirect(err)) throw err;
-    if (
-      err &&
-      typeof err === "object" &&
-      "name" in err &&
-      err.name === "ZodError"
-    ) {
-      const fieldErrors: Record<string, string> = {};
-      const issues =
-        err && typeof err === "object" && "issues" in err
-          ? (err.issues as { path: string[]; message: string }[])
-          : [];
-      for (const issue of issues) {
-        const k = issue.path?.join?.(".") || "form";
-        fieldErrors[k] = issue.message;
-      }
-      return { ok: false, fieldErrors };
-    }
-    console.error("createContact error:", err);
-    return { ok: false, message: "Server error. Please try again." };
+    return toErrorState(err, "createContact");
   }
 }
 
@@ -110,45 +104,14 @@ export async function updateContact(
 
     const input = readForm(formData);
 
-    const settings = await getSettings(userId);
-    const intervalDays = input.intervalDays ?? defaultIntervalFor(input.category, settings);
+    const updated = await contactsOf(userId).update(id, toContactFields(input));
+    if (!updated) return { ok: false, message: "Contact not found" };
 
-    const existing = await prisma.contact.findFirst({ where: { id, userId } });
-    if (!existing) return { ok: false, message: "Contact not found" };
-
-    await prisma.contact.update({
-      where: { id },
-      data: {
-        name: input.name,
-        phone: input.phone ?? null,
-        category: input.category,
-        intervalDays,
-        isActive: input.isActive,
-      },
-    });
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {
     if (isNextRedirect(err)) throw err;
-    if (
-      err &&
-      typeof err === "object" &&
-      "name" in err &&
-      err.name === "ZodError"
-    ) {
-      const fieldErrors: Record<string, string> = {};
-      const issues =
-        err && typeof err === "object" && "issues" in err
-          ? (err.issues as { path: string[]; message: string }[])
-          : [];
-      for (const issue of issues) {
-        const k = issue.path?.join?.(".") || "form";
-        fieldErrors[k] = issue.message;
-      }
-      return { ok: false, fieldErrors };
-    }
-    console.error("updateContact error:", err);
-    return { ok: false, message: "Server error. Please try again." };
+    return toErrorState(err, "updateContact");
   }
 }
 
@@ -161,15 +124,13 @@ export async function deleteContact(
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
-    const existing = await prisma.contact.findFirst({ where: { id, userId } });
-    if (!existing) return { ok: false, message: "Contact not found" };
+    const removed = await contactsOf(userId).remove(id);
+    if (!removed) return { ok: false, message: "Contact not found" };
 
-    await prisma.contact.delete({ where: { id } });
     revalidatePath("/contacts");
     redirect("/contacts");
   } catch (err) {
     if (isNextRedirect(err)) throw err;
-    console.error("deleteContact error:", err);
-    return { ok: false, message: "Server error. Please try again." };
+    return toErrorState(err, "deleteContact");
   }
 }

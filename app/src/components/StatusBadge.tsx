@@ -1,3 +1,5 @@
+import { statusLabel } from "@/lib/due";
+
 type StatusBadgeProps = {
   status: "overdue" | "today" | "ok";
   daysUntilDue: number;
@@ -7,12 +9,6 @@ export default function StatusBadge({
   status,
   daysUntilDue,
 }: StatusBadgeProps) {
-  const getStatusText = () => {
-    if (status === "overdue") return `${Math.abs(daysUntilDue)}d overdue`;
-    if (status === "today") return "Due today";
-    return `${daysUntilDue}d left`;
-  };
-
   const getStatusStyles = () => {
     if (status === "overdue")
       return "bg-red-50 text-red-700 ring-1 ring-red-600/20 shadow-sm";
@@ -78,7 +74,7 @@ export default function StatusBadge({
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getStatusStyles()}`}
     >
       {getIcon()}
-      {getStatusText()}
+      {statusLabel({ status, daysUntilDue })}
     </span>
   );
 }

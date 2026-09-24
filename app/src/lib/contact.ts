@@ -1,5 +1,3 @@
-import type { ContactLike } from "./due";
-
 export const CATEGORY_VALUES = ["FAMILY", "FRIEND", "WORK", "OTHER"] as const;
 
 export type Category = (typeof CATEGORY_VALUES)[number];
@@ -13,15 +11,6 @@ export type ContactContext = {
   existingTopics: string[];
   existingFollowUps: string[];
   recentInteractions: { note: string; date: Date }[];
-};
-
-type DueContactSource = {
-  id: string;
-  name: string;
-  phone: string | null;
-  intervalDays: number;
-  createdAt: Date;
-  lastContactedAt: Date | null;
 };
 
 type AiMemorySource = {
@@ -94,16 +83,5 @@ export function buildContactContext(contact: AiMemorySource): ContactContext {
         note: interaction.note.trim(),
         date: interaction.notedAt,
       })),
-  };
-}
-
-export function toContactLike(contact: DueContactSource): ContactLike {
-  return {
-    id: contact.id,
-    name: contact.name,
-    phone: contact.phone,
-    intervalDays: contact.intervalDays,
-    createdAt: contact.createdAt,
-    lastContactedAt: contact.lastContactedAt ?? undefined,
   };
 }
