@@ -31,37 +31,44 @@ function readSMTP(): SMTPConfig {
   return { host, port, user, pass, from };
 }
 
+export type Mail = { to: string[]; subject: string; html: string };
+
+export type SentMail = { messageId: string; accepted: string[]; rejected: string[] };
+
+/** Anything that can deliver an HTML email: SMTP in production, a fake in tests. */
+export type Mailer = { send(mail: Mail): Promise<SentMail> };
+
+const addressOf = (a: string | { address: string }) =>
+  typeof a === "string" ? a : a.address;
+
 /**
- * Send the daily digest email via SMTP.
- * @param to - Array of recipient email addresses
- * @param subject - Email subject line
- * @param html - HTML content of the email
- * @returns Object with messageId, accepted, and rejected addresses
+ * Mailer backed by SMTP. Reads its configuration on every send and
+ * throws if any SMTP env var is missing.
  */
-export async function sendDigestSMTP(
-  to: string[],
-  subject: string,
-  html: string
-) {
-  const cfg = readSMTP();
-
-  const transporter = nodemailer.createTransport({
-    host: cfg.host,
-    port: cfg.port,
-    secure: cfg.port === 465, // 465 = SSL, 587 = STARTTLS
-    auth: { user: cfg.user, pass: cfg.pass },
-  });
-
-  const info = await transporter.sendMail({
-    from: cfg.from,
-    to: to.join(", "),
-    subject,
-    html,
-  });
-
+export function smtpMailer(): Mailer {
   return {
-    messageId: info.messageId,
-    accepted: info.accepted,
-    rejected: info.rejected,
+    async send({ to, subject, html }) {
+      const cfg = readSMTP();
+
+      const transporter = nodemailer.createTransport({
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.port === 465, // 465 = SSL, 587 = STARTTLS
+        auth: { user: cfg.user, pass: cfg.pass },
+      });
+
+      const info = await transporter.sendMail({
+        from: cfg.from,
+        to: to.join(", "),
+        subject,
+        html,
+      });
+
+      return {
+        messageId: info.messageId,
+        accepted: info.accepted.map(addressOf),
+        rejected: info.rejected.map(addressOf),
+      };
+    },
   };
 }

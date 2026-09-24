@@ -3,6 +3,7 @@
 
 import { prisma } from "./db";
 import { computeStatus, type ContactLike } from "./due";
+import { getSettings } from "./settings";
 import type { Category } from "./contact";
 
 export type Status = "overdue" | "today" | "ok";
@@ -30,17 +31,12 @@ function byNextDue(a: DigestItem, b: DigestItem) {
   return a.nextDueAt.getTime() - b.nextDueAt.getTime();
 }
 
-/** Build the digest for a given moment and user. */
-export async function buildDigest(now: Date = new Date(), userId?: string): Promise<DigestData> {
-  const contactWhere: { isActive: boolean; userId?: string } = { isActive: true };
-  if (userId) contactWhere.userId = userId;
-
+/** Build one user's digest for a given moment. */
+export async function buildDigest(userId: string, now: Date = new Date()): Promise<DigestData> {
   const [settings, rows] = await Promise.all([
-    userId
-      ? prisma.setting.findUnique({ where: { userId } })
-      : prisma.setting.findFirst(),
+    getSettings(userId),
     prisma.contact.findMany({
-      where: contactWhere,
+      where: { userId, isActive: true },
       select: {
         id: true,
         name: true,
@@ -82,8 +78,7 @@ export async function buildDigest(now: Date = new Date(), userId?: string): Prom
   const ok = items.filter((i) => i.status === "ok");
 
   // 4) Upcoming = first N "ok" (from settings)
-  const upcomingCount = settings?.upcomingCount ?? 2;
-  const upcoming = ok.slice(0, upcomingCount);
+  const upcoming = ok.slice(0, settings.upcomingCount);
 
   // 5) Stats
   const shown = [...overdue, ...today, ...upcoming];

@@ -96,5 +96,18 @@ npm run dev      # Development server
 npm run build    # Production build
 npm run start    # Production server
 npm run lint     # ESLint
-npm run test     # Vitest
+npm run test     # Vitest (unit + database tests)
 ```
+
+## Tests
+
+Unit tests (`*.test.ts`) are pure and need nothing. Database tests (`*.db.test.ts`) run against a throwaway Postgres in Docker:
+
+```bash
+npm run test:db:up    # start the test database (localhost:54329)
+npm run test          # run everything
+npm run test:unit     # unit tests only, no database needed
+npm run test:db:down  # stop it
+```
+
+Point `TEST_DATABASE_URL` at another Postgres if you don't use Docker. The database name must end in `_test`: the suite truncates every table before each test, and it never falls back to `DATABASE_URL`.

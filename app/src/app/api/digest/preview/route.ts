@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const data = await buildDigest(new Date(), session.user.id);
+  const data = await buildDigest(session.user.id);
   const toIso = (x: { nextDueAt: Date; [key: string]: unknown }) => ({
     ...x,
     nextDueAt: x.nextDueAt.toISOString(),
