@@ -29,3 +29,7 @@ coverage/
 
 # Misc
 plan.docx
+
+# Local-only AI assistant instructions
+CLAUDE.md
+.claude/
