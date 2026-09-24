@@ -71,6 +71,7 @@ jobs:
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           working-directory: app
+          file-coverage-mode: all
       - name: Upload HTML coverage report
         if: always()
         uses: actions/upload-artifact@v4

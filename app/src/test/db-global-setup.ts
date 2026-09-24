@@ -3,7 +3,7 @@
 import { execSync } from "node:child_process";
 import { testDatabaseUrl } from "./db-url";
 
-function prisma(args: string, url: string, input?: string) {
+function runPrismaCli(args: string, url: string, input?: string) {
   execSync(`npx prisma ${args}`, {
     env: { ...process.env, DATABASE_URL: url, DIRECT_URL: url },
     input,
@@ -19,8 +19,8 @@ export default function setup() {
   const url = testDatabaseUrl();
   try {
     // Start empty (the URL is guaranteed to be a `_test` database), then apply migrations.
-    prisma("db execute --stdin --url \"$DATABASE_URL\"", url, "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
-    prisma("migrate deploy", url);
+    runPrismaCli("db execute --stdin --url \"$DATABASE_URL\"", url, "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+    runPrismaCli("migrate deploy", url);
   } catch (err) {
     throw new Error(
       `Could not apply the migrations to the test database (${new URL(url).host}). ` +
@@ -29,7 +29,7 @@ export default function setup() {
   }
 
   try {
-    prisma(
+    runPrismaCli(
       "migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --exit-code",
       url
     );
