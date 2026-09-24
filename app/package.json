@@ -16,11 +16,11 @@
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.16.1",
     "bcryptjs": "^3.0.3",
-    "next": "^15.5.7",
+    "next": "^16.3.6",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^7.0.6",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "zod": "^4.1.9"
   },
   "overrides": {
@@ -39,7 +39,7 @@
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
     "eslint": "^9",
-    "eslint-config-next": "15.5.3",
+    "eslint-config-next": "^16.3.6",
     "prisma": "^6.16.1",
     "tailwindcss": "^4",
     "typescript": "^5",

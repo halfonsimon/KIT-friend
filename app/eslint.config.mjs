@@ -1,21 +1,16 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
 // eslint.config.mjs
+import { defineConfig, globalIgnores } from "eslint/config";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const config = [
+// eslint-config-next 16+ ships native flat configs, so FlatCompat is no longer needed.
+export default defineConfig([
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextVitals,
+  ...nextTs,
   {
     settings: {
       "import/resolver": {
@@ -25,15 +20,11 @@ const config = [
       },
     },
   },
-  {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
-  },
-];
-
-export default config;
+  globalIgnores([
+    "node_modules/**",
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
