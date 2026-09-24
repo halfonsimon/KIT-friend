@@ -7,7 +7,20 @@ import { prisma } from "./db";
 import { buildDigest, type DigestData } from "./digest";
 import { renderDigestEmail } from "./email";
 import type { Mailer } from "./mailer";
-import { getSettings, settingsFromRow } from "./settings";
+import { getSettings, settingsFromRow, type AppSettings } from "./settings";
+
+/** Where a user's digest goes: their digest email if set, else their account email. */
+function recipientFor(settings: AppSettings, accountEmail: string): string {
+  return settings.digestEmail || accountEmail;
+}
+
+/** Build, render and send one user's digest. */
+async function sendDigest(userId: string, to: string, now: Date, mailer: Mailer) {
+  const digest = await buildDigest(userId, now);
+  const { subject, html } = renderDigestEmail(digest);
+  const sent = await mailer.send({ to: [to], subject, html });
+  return { messageId: sent.messageId, stats: digest.stats };
+}
 
 export type TestDigestResult = {
   recipient: string;
@@ -27,13 +40,10 @@ export async function sendTestDigest(input: {
   mailer: Mailer;
 }): Promise<TestDigestResult> {
   const settings = await getSettings(input.userId);
-  const recipient = settings.digestEmail || input.accountEmail;
+  const recipient = recipientFor(settings, input.accountEmail);
+  const { messageId, stats } = await sendDigest(input.userId, recipient, input.now, input.mailer);
 
-  const digest = await buildDigest(input.userId, input.now);
-  const { subject, html } = renderDigestEmail(digest);
-  const sent = await input.mailer.send({ to: [recipient], subject, html });
-
-  return { recipient, messageId: sent.messageId, stats: digest.stats };
+  return { recipient, messageId, stats };
 }
 
 export type DigestOutcome = {
@@ -72,7 +82,7 @@ export async function runScheduledDigests(input: {
   for (const user of users) {
     const settings = settingsFromRow(user.setting);
     if (!settings.sendEmailDigest) continue;
-    const email = settings.digestEmail || user.email;
+    const email = recipientFor(settings, user.email);
     if (!email) {
       outcomes.push({ userId: user.id, email: "", status: "skipped_no_email" });
       continue;
@@ -90,16 +100,14 @@ export async function runScheduledDigests(input: {
     }
 
     try {
-      const digest = await buildDigest(user.id, input.now);
-      const { subject, html } = renderDigestEmail(digest);
-      const sent = await input.mailer.send({ to: [email], subject, html });
+      const { messageId } = await sendDigest(user.id, email, input.now, input.mailer);
 
       await prisma.setting.upsert({
         where: { userId: user.id },
         create: { userId: user.id, lastEmailDigestAt: input.now },
         update: { lastEmailDigestAt: input.now },
       });
-      outcomes.push({ userId: user.id, email, status: "sent", messageId: sent.messageId });
+      outcomes.push({ userId: user.id, email, status: "sent", messageId });
     } catch (err) {
       console.error(`Failed to send digest to ${email}:`, err);
       outcomes.push({ userId: user.id, email, status: "error" });
