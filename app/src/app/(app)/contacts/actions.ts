@@ -108,7 +108,8 @@ export async function updateContact(
     if (!updated) return { ok: false, message: "Contact not found" };
 
     revalidatePath("/contacts");
-    redirect("/contacts");
+    revalidatePath(`/contacts/${id}`);
+    redirect(`/contacts/${id}`);
   } catch (err) {
     if (isNextRedirect(err)) throw err;
     return toErrorState(err, "updateContact");

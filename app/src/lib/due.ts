@@ -75,6 +75,11 @@ function diffDaysUtc(a: Date, b: Date): number {
   return Math.floor((a0 - b0) / MS_PER_DAY);
 }
 
+/** Whether two moments fall on the same UTC calendar day. */
+export function isSameUtcDay(a: Date, b: Date): boolean {
+  return diffDaysUtc(a, b) === 0;
+}
+
 /* ========== Per-contact computation ========== */
 
 // calculate if a contact is overdue, today, or upcoming
