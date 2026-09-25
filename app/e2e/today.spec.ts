@@ -67,3 +67,27 @@ test("One at a time goes person by person, and Later only skips for this visit",
   await page.reload();
   await expect(page.getByRole("button", { name: "One at a time", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("on a phone, One at a time never covers a long name with Last talked", async ({ page }) => {
+  const user = newUser("today-long-name");
+  await registerThroughUi(page, user);
+  const { id: userId } = await db.user.findUniqueOrThrow({ where: { email: user.email } });
+  await db.contact.create({
+    data: { userId, name: "Dayan Partouche", category: "FRIEND", intervalDays: 15, lastContactedAt: daysAgo(40) },
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "One at a time", exact: true }).click();
+
+  const name = page.getByRole("heading", { name: "Dayan Partouche", level: 2 }).filter({ visible: true });
+  const lastTalked = page.getByText(/^Last talked on /).filter({ visible: true });
+  await expect(name).toBeVisible();
+  await expect(lastTalked).toBeVisible();
+
+  const n = (await name.boundingBox())!;
+  const c = (await lastTalked.boundingBox())!;
+  const overlaps = n.x < c.x + c.width && c.x < n.x + n.width && n.y < c.y + c.height && c.y < n.y + n.height;
+  expect(overlaps).toBe(false);
+  expect(c.x + c.width).toBeLessThanOrEqual(390);
+});
