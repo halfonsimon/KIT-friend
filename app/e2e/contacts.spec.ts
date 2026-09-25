@@ -77,3 +77,47 @@ test("Add contact fills the days from the category default and adds them to the 
   const tamar = await db.contact.findFirstOrThrow({ where: { userId, name: "Tamar" } });
   expect(tamar).toMatchObject({ category: "FAMILY", intervalDays: 5, isActive: true });
 });
+
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  /** Press on a row, move the finger by `moves`, and (unless told not to) lift it. */
+  async function drag(page: Page, name: string, moves: { x: number; y: number }[], lift = true) {
+    const link = page.getByRole("link", { name: new RegExp(`^${name}`) });
+    const box = (await link.boundingBox())!;
+    const start = { x: box.x + 20, y: box.y + box.height / 2 };
+    const pointer = (x: number, y: number) => ({ pointerType: "touch", pointerId: 7, isPrimary: true, clientX: x, clientY: y });
+    await link.dispatchEvent("pointerdown", pointer(start.x, start.y));
+    for (const m of moves) await link.dispatchEvent("pointermove", pointer(start.x + m.x, start.y + m.y));
+    if (!lift) return;
+    await link.dispatchEvent("pointerup", pointer(start.x + moves.at(-1)!.x, start.y + moves.at(-1)!.y));
+  }
+
+  test("a tap with a little finger jitter opens the Contact and records nothing", async ({ page }) => {
+    const userId = await userWithContacts(page, "contacts-tap");
+    await page.goto("/contacts");
+    const before = await db.contact.findFirstOrThrow({ where: { userId, name: "Noa" } });
+
+    await drag(page, "Noa", [{ x: 4, y: 1 }, { x: 6, y: -2 }], false);
+    // The row stays put while the finger jitters.
+    await expect(page.getByRole("link", { name: /^Noa/ }).locator("..")).toHaveCSS("transform", "none");
+    await drag(page, "Noa", [{ x: 6, y: -2 }]);
+    await page.getByRole("link", { name: /^Noa/ }).click();
+
+    await expect(page.getByRole("heading", { name: "Noa", level: 1 })).toBeVisible();
+    const after = await db.contact.findFirstOrThrow({ where: { userId, name: "Noa" } });
+    expect(after.lastContactedAt).toEqual(before.lastContactedAt);
+  });
+
+  test("a clear swipe right records a Touch", async ({ page }) => {
+    const userId = await userWithContacts(page, "contacts-swipe");
+    await page.goto("/contacts");
+
+    await drag(page, "Noa", [{ x: 15, y: 2 }, { x: 60, y: 4 }, { x: 130, y: 6 }]);
+
+    await expect(page.getByRole("status")).toHaveText("Noa marked as talked");
+    await expect(page).toHaveURL(/\/contacts$/);
+    const noa = await db.contact.findFirstOrThrow({ where: { userId, name: "Noa" } });
+    expect(noa.lastContactedAt!.getTime()).toBeGreaterThan(daysAgo(1).getTime());
+  });
+});
