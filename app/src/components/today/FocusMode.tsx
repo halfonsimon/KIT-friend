@@ -83,19 +83,20 @@ function FocusPerson({ person, behind, onTalk, onLater, busy }: { person: TodayP
     <>
       {/* Phone */}
       <div className="flex flex-col md:hidden">
-        <div className="relative mt-2 h-[232px]">
+        {/* The card sizes to its content, so a name on two lines pushes Last talked down instead of under it. */}
+        <div className="relative mt-2 pb-5">
           <Peeks count={behind} />
-          <article className="absolute inset-x-0 top-0 flex h-[212px] flex-col justify-between overflow-hidden rounded-[30px] bg-brand p-[22px] text-white shadow-brand">
+          <article className="relative flex min-h-[212px] flex-col justify-between gap-4 overflow-hidden rounded-[30px] bg-brand p-[22px] text-white shadow-brand">
             <Glow className="-right-20 -top-32 h-64 w-64" />
             <span className="relative">
               <CategoryPill person={person} />
             </span>
-            <div className="relative flex flex-col gap-1.5">
-              <h2 className="display text-[56px] leading-[0.95]">{person.name}</h2>
+            <div className="relative flex flex-col items-start gap-1.5">
+              <h2 className="display text-[56px] leading-[0.95] [overflow-wrap:anywhere]">{person.name}</h2>
               <span className="text-[15px] font-medium text-brand-soft">{everyLabel(person.intervalDays)}</span>
+              <LastTalkedChip person={person} className="mt-1.5 max-w-full" />
             </div>
           </article>
-          <LastTalkedChip person={person} className="absolute -right-1.5 top-[124px]" />
         </div>
         <section className="glass mt-4 flex flex-col gap-3 rounded-[26px] p-[18px]">
           <h3 className="text-sm font-bold text-muted">For your next call</h3>
