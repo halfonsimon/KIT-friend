@@ -16,12 +16,13 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
 
   for (const name of ["Ada Lovelace", "Grace Hopper"]) {
     await page.goto("/contacts/new");
-    await page.locator('input[name="name"]').fill(name);
-    await page.locator('select[name="category"]').selectOption("FRIEND");
-    await page.locator('input[name="intervalDays"]').fill("7");
-    await page.getByRole("button", { name: "Create Contact" }).click();
+    const sheet = page.getByRole("dialog", { name: "Add someone" });
+    await sheet.getByLabel("Name").fill(name);
+    await sheet.getByText("Friend", { exact: true }).click();
+    await sheet.getByLabel("Days between check-ins").fill("7");
+    await sheet.getByRole("button", { name: "Add contact" }).click();
     await expect(page).toHaveURL(/\/contacts$/);
-    await expect(page.getByText(name).first()).toBeVisible();
+    await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }
 
   // A Contact added through the UI is never due yet, so make Ada's last Touch
@@ -33,18 +34,11 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
 
   // Record a Touch with a note on Grace.
   await page.reload();
-  // The innermost block holding both her name and a Touch button is her card.
-  await page
-    .locator("div")
-    .filter({ has: page.getByRole("heading", { name: "Grace Hopper" }) })
-    .filter({ has: page.getByRole("button", { name: "Touch" }) })
-    .last()
-    .getByRole("button", { name: "Touch" })
-    .click();
-  await expect(page.getByText("Touched base with Grace Hopper")).toBeVisible();
-  await page.getByPlaceholder(/Talked about her new job/).fill("Coffee, talked about COBOL.");
+  await page.getByRole("button", { name: "We talked with Grace Hopper" }).click();
+  const sheet = page.getByRole("dialog", { name: "You talked with Grace Hopper" });
+  await sheet.getByRole("textbox", { name: "Note" }).fill("Coffee, talked about COBOL.");
   const touched = page.waitForResponse((r) => r.url().includes("/touch") && r.request().method() === "POST");
-  await page.getByRole("button", { name: "Save Note" }).click();
+  await sheet.getByRole("button", { name: "Save note" }).click();
   expect((await touched).status()).toBe(200);
 
   const grace = await db.contact.findFirstOrThrow({
@@ -54,10 +48,12 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
   expect(grace.lastContactedAt).not.toBeNull();
   expect(grace.interactions.map((i) => i.note)).toEqual(["Coffee, talked about COBOL."]);
 
-  // Send the Digest from the digest page.
+  // Send the Digest from Settings (the old /digest address leads there).
   await page.goto("/digest");
-  await page.getByRole("button", { name: "Send Test Email" }).click();
-  await expect(page.getByText(`Sent to: ${user.email}`)).toBeVisible();
+  await expect(page).toHaveURL(/\/settings/);
+  await expect(page.getByText("Ada Lovelace")).toBeVisible();
+  await page.getByRole("button", { name: "Send me one now" }).click();
+  await expect(page.getByText(`Sent to ${user.email}`)).toBeVisible();
 
   const [mail] = await expectMailTo(user.email, 1);
   expect(mail.subject).toBe("Keep In Touch — 1 overdue, 0 today");

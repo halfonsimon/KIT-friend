@@ -9,6 +9,9 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     ? { name: session.user.name ?? null, email: session.user.email ?? null, image: session.user.image ?? null }
     : null;
 
+  // Signed out, only the landing page is reachable here, and it draws its own frame.
+  if (!user) return <>{children}</>;
+
   return (
     <div className="relative min-h-screen md:pt-4">
       <Backdrop />

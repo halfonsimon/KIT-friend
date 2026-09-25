@@ -1,15 +1,19 @@
 import { auth } from "@/auth";
-import { requireUser } from "@/lib/auth-utils";
 import { today } from "@/lib/today";
+import Landing from "@/components/landing/Landing";
 import TodayScreen from "@/components/today/TodayScreen";
 import { toTodayPerson } from "@/components/today/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const userId = await requireUser();
+  // Signed out, "/" is the landing page; signed in, it's Today.
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return <Landing />;
+
   const now = new Date();
-  const [session, view] = await Promise.all([auth(), today(userId, now)]);
+  const view = await today(userId, now);
 
   const firstName = session?.user?.name?.trim().split(/\s+/)[0] ?? null;
   const dateLabel = now.toLocaleDateString("en-GB", {

@@ -24,6 +24,8 @@ One user's Contacts with their Due status, in due order: overdue, then today, th
 The user recording that they just got in touch with a Contact, optionally with a note. Resets the Contact's due date.
 _Avoid_: check-in, contact (as a verb)
 
+A Touch can be undone right after it is recorded: the last Touch goes back to what it was and the note saved with it is dropped.
+
 **Interaction**:
 A saved note from a Touch.
 

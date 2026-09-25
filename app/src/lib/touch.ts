@@ -13,6 +13,8 @@ import { computeStatus, type Computed } from "./due";
 export type TouchResult = Computed & {
   id: string;
   lastContactedAt: Date;
+  /** The last touch before this one, so the touch can be undone. */
+  previousContactedAt: Date | null;
 };
 
 /** Runs work after the response: Next's `after()` in production. */
@@ -34,7 +36,10 @@ export async function recordTouch(input: {
   memory?: RelationshipMemory;
   defer?: Defer;
 }): Promise<TouchResult | null> {
-  const touched = await contactsOf(input.userId).update(input.contactId, {
+  const contacts = contactsOf(input.userId);
+  const before = await contacts.get(input.contactId);
+  if (!before) return null;
+  const touched = await contacts.update(input.contactId, {
     lastContactedAt: input.now,
   });
   if (!touched) return null;
@@ -61,8 +66,34 @@ export async function recordTouch(input: {
   return {
     id: touched.id,
     lastContactedAt: input.now,
+    previousContactedAt: before.lastContactedAt,
     ...computeStatus(touched, input.now),
   };
+}
+
+/**
+ * Undo a touch recorded at `touchedAt`: put the last touch back to
+ * `restoreTo` and drop the note saved with it. Does nothing (returns false)
+ * once the contact has been touched again since. Returns `null` when the
+ * contact is missing or not the user's. Relationship memory already learned
+ * from the note is kept.
+ */
+export async function undoTouch(input: {
+  userId: string;
+  contactId: string;
+  touchedAt: Date;
+  restoreTo: Date | null;
+}): Promise<boolean | null> {
+  const contacts = contactsOf(input.userId);
+  const contact = await contacts.get(input.contactId);
+  if (!contact) return null;
+  if (contact.lastContactedAt?.getTime() !== input.touchedAt.getTime()) return false;
+
+  await contacts.update(contact.id, { lastContactedAt: input.restoreTo });
+  await prisma.interaction.deleteMany({
+    where: { contactId: contact.id, notedAt: input.touchedAt },
+  });
+  return true;
 }
 
 async function rememberNote(

@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import BrandMark from "@/components/ui/BrandMark";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { ModeToggle, ProgressChip, type Mode } from "./bits";
 import FocusMode from "./FocusMode";
 import ListMode, { Glow } from "./ListMode";
 import TalkSheet from "./TalkSheet";
+import { Toast, useTalk } from "@/components/talk/useTalk";
 import { categoryAndLastTalked, numberWord, type TodayPerson } from "./types";
 
 type Props = {
@@ -65,25 +65,6 @@ function useMode(): [Mode, (m: Mode) => void] {
 
 function peopleWord(n: number) {
   return n === 1 ? "person" : "people";
-}
-
-function Toast({ message }: { message: string | null }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="pointer-events-none fixed inset-x-5 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+5rem)] z-50 flex justify-center md:bottom-8"
-    >
-      {message && (
-        <div className="flex h-14 items-center gap-3 rounded-full bg-ink pl-4 pr-6 text-[15px] font-semibold text-white shadow-card">
-          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-brand">
-            <Icon name="check" size={14} strokeWidth={3} />
-          </span>
-          {message}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function DoneCard({ goal, waiting, onKeepGoing }: { goal: number; waiting: number; onKeepGoing?: () => void }) {
@@ -155,49 +136,16 @@ function AllSkipped({ onRestart }: { onRestart: () => void }) {
 /* ---------- The screen ---------- */
 
 export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, hasContacts }: Props) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
   const [mode, setMode] = useMode();
+  const { talk, undo, toast, busyId } = useTalk();
   const [talkingTo, setTalkingTo] = useState<TodayPerson | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [keepGoing, setKeepGoing] = useState(false);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const dueCount = suggested.length + others.length;
   const goalMet = suggested.length === 0 && doneToday >= dailyGoal && doneToday > 0;
   const showDone = goalMet && !keepGoing;
   const queue = [...suggested, ...others].filter((p) => !skipped.includes(p.id));
-
-  /** Record a Touch; returns whether it was saved. */
-  const talk = useCallback(
-    async (person: TodayPerson, note: string) => {
-      setBusyId(person.id);
-      try {
-        const res = await fetch(`/api/contacts/${person.id}/touch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ note }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setToast(note ? `Note saved for ${person.name}` : `${person.name} marked as talked`);
-        startTransition(() => router.refresh());
-        return true;
-      } catch {
-        setToast("Couldn’t save. Check your connection and try again.");
-        return false;
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [router]
-  );
 
   const closeSheet = useCallback(() => setTalkingTo(null), []);
 
@@ -325,7 +273,7 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
           }}
         />
       )}
-      <Toast message={toast} />
+      <Toast toast={toast} onUndo={undo} />
     </div>
   );
 }
