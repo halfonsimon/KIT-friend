@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Logo from "@/components/Logo";
+import BrandMark from "@/components/ui/BrandMark";
 
 export default function Home() {
   return (
@@ -8,7 +8,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mb-8">
           <div className="mb-6">
-            <Logo size="lg" showGlow={true} animated={true} />
+            <BrandMark size={80} />
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 mb-4 leading-tight">
             Keep In

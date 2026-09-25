@@ -2,6 +2,9 @@
 import { getSettings } from "@/lib/settings";
 import { SettingsForm, FieldError } from "./SettingsForm";
 import { requireUser } from "@/lib/auth-utils";
+import Link from "next/link";
+import SignOutButton from "@/components/SignOutButton";
+import { buttonClass } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -276,6 +279,22 @@ export default async function SettingsPage() {
           </button>
         </div>
       </SettingsForm>
+
+      <section className="rounded-[28px] bg-white p-6 shadow-card">
+        <h2 className="text-xl font-extrabold tracking-tight">Today’s email</h2>
+        <p className="mt-1 text-sm text-muted">See what the daily email looks like, or send one now.</p>
+        <Link href="/digest" className={buttonClass("soft", "md", "mt-4")}>
+          Preview today’s email
+        </Link>
+      </section>
+
+      <section className="flex items-center justify-between gap-4 rounded-[28px] bg-white p-6 shadow-card">
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight">Account</h2>
+          <p className="mt-1 text-sm text-muted">Sign out of KIT Friend on this device.</p>
+        </div>
+        <SignOutButton />
+      </section>
     </div>
   );
 }
