@@ -1,4 +1,4 @@
-import type { Category } from "@prisma/client";
+import type { Category } from "@/lib/contact";
 import Icon, { type IconName } from "./Icon";
 
 // Each category's tint, ink and icon. Chips are told apart by icon and label, not colour alone.

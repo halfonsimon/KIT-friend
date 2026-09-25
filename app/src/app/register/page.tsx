@@ -41,7 +41,7 @@ export default function RegisterPage() {
         setError("Account created but sign-in failed. Please go to the login page.");
         setLoading(false);
       } else {
-        window.location.href = "/contacts";
+        window.location.href = "/";
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -68,7 +68,7 @@ export default function RegisterPage() {
         {/* Google Sign Up */}
         <button
           type="button"
-          onClick={() => signIn("google", { callbackUrl: "/contacts" })}
+          onClick={() => signIn("google", { callbackUrl: "/" })}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-slate-300 rounded-xl font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

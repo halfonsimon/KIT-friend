@@ -5,7 +5,7 @@
  * rules live in ./due.
  */
 import { prisma } from "./db";
-import { asCategory, type Category } from "./contact";
+import { asCategory, readStoredAiMemory, type Category } from "./contact";
 import { computeStatus, type Computed, type Status } from "./due";
 
 export type RosterContact = Computed & {
@@ -20,6 +20,10 @@ export type RosterContact = Computed & {
   isActive: boolean;
   notes: string | null;
   hasAiSummary: boolean;
+  // Relationship memory, for "For your next call" and the memory panel.
+  aiSummary: string | null;
+  keyTopics: string[];
+  followUps: string[];
 };
 
 const STATUS_ORDER: Record<Status, number> = { overdue: 0, today: 1, ok: 2 };
@@ -54,6 +58,7 @@ export async function roster(
       isActive: c.isActive,
       notes: c.notes,
       hasAiSummary: !!c.aiSummary,
+      ...readStoredAiMemory(c),
       ...computeStatus(c, now),
     }))
     .sort(byDueOrder);

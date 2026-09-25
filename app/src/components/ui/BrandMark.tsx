@@ -1,4 +1,6 @@
 // The KIT Friend logo: the blue rounded square with a ring of dots (same art as public/icons/icon.svg).
+// The gradient is CSS rather than an SVG <linearGradient>, so several logos on one page
+// (one of them hidden) never fight over a shared gradient id.
 const ring = [
   [256, 170],
   [317, 195],
@@ -12,20 +14,19 @@ const ring = [
 
 export default function BrandMark({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" className="shrink-0">
-      <defs>
-        <linearGradient id="kf-brandmark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#4F46E5" />
-          <stop offset="1" stopColor="#3B82F6" />
-        </linearGradient>
-      </defs>
-      <rect x="32" y="32" width="448" height="448" rx="110" fill="url(#kf-brandmark)" />
-      <g fill="#fff">
-        <circle cx="256" cy="256" r="30" />
-        {ring.map(([cx, cy]) => (
-          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="22" />
-        ))}
-      </g>
-    </svg>
+    <span
+      aria-hidden="true"
+      className="inline-flex shrink-0 bg-linear-to-br from-[#4f46e5] to-[#3b82f6]"
+      style={{ width: size * 0.875, height: size * 0.875, margin: size / 16, borderRadius: size * 0.215 }}
+    >
+      <svg width="100%" height="100%" viewBox="32 32 448 448">
+        <g fill="#fff">
+          <circle cx="256" cy="256" r="30" />
+          {ring.map(([cx, cy]) => (
+            <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="22" />
+          ))}
+        </g>
+      </svg>
+    </span>
   );
 }

@@ -93,4 +93,5 @@ model Setting {
   digestTime         String   @default("06:00")
   digestEmail        String?
   lastEmailDigestAt  DateTime?
+  dailyGoal          Int      @default(3)
 }

@@ -24,6 +24,25 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsForm>
+        <section className="rounded-[28px] bg-white p-6 shadow-card">
+          <label htmlFor="dailyGoal" className="text-xl font-extrabold tracking-tight">
+            Daily goal
+          </label>
+          <p className="mt-1 text-sm text-muted">
+            How many people you want to catch up with each day. Today suggests this many to start with.
+          </p>
+          <input
+            id="dailyGoal"
+            type="number"
+            name="dailyGoal"
+            min={1}
+            max={20}
+            defaultValue={s.dailyGoal}
+            className="mt-4 h-12 w-28 rounded-2xl border-[1.5px] border-field bg-white px-4 text-base"
+          />
+          <FieldError field="dailyGoal" />
+        </section>
+
         {/* Digest Settings */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="p-6">

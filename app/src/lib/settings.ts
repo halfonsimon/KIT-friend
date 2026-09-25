@@ -18,6 +18,8 @@ const FALLBACK = {
   sendEmailDigest: true,
   digestTime: "06:00",
   digestEmail: null as string | null,
+  // How many due people Today suggests starting with.
+  dailyGoal: 3,
 };
 
 export type AppSettings = typeof FALLBACK;
@@ -31,6 +33,7 @@ type SettingRow = {
   sendEmailDigest: boolean | null;
   digestTime: string | null;
   digestEmail: string | null;
+  dailyGoal: number | null;
 };
 
 /** Apply defaults and clamping to a Setting row that may not exist yet. */
@@ -59,6 +62,7 @@ function settingsFromRow(row: SettingRow | null): AppSettings {
     sendEmailDigest: row.sendEmailDigest ?? FALLBACK.sendEmailDigest,
     digestTime: row.digestTime ?? FALLBACK.digestTime,
     digestEmail: row.digestEmail ?? null,
+    dailyGoal: Math.max(1, row.dailyGoal ?? FALLBACK.dailyGoal),
   };
 }
 
@@ -89,6 +93,11 @@ export const SettingsSchema = z.object({
   sendEmailDigest: z.boolean(),
   digestTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
   digestEmail: z.email("Enter a valid email address, or leave it blank").nullable(),
+  dailyGoal: z
+    .number({ error: "Enter a number" })
+    .int("Use a whole number")
+    .min(1, "Must be between 1 and 20")
+    .max(20, "Must be between 1 and 20"),
 });
 
 /**
@@ -106,6 +115,7 @@ export async function saveSettings(userId: string, settings: AppSettings): Promi
     sendEmailDigest: s.sendEmailDigest,
     digestTime: s.digestTime,
     digestEmail: s.digestEmail,
+    dailyGoal: s.dailyGoal,
   };
   await prisma.setting.upsert({
     where: { userId },

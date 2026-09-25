@@ -1,58 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-
-// Web Speech API types
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-interface ISpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): ISpeechRecognition;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
-const subscribeNoop = () => () => {};
-const getSpeechSupportedSnapshot = () =>
-  !!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
-const getSpeechSupportedServerSnapshot = () => false;
+import { useState, useEffect, useRef } from "react";
+import { appendPhrase, useDictation } from "./useDictation";
 
 type Props = {
   contactName: string;
@@ -70,66 +19,20 @@ export default function TouchModal({
   isSubmitting,
 }: Props) {
   const [note, setNote] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  const speechSupported = useSyncExternalStore(
-    subscribeNoop,
-    getSpeechSupportedSnapshot,
-    getSpeechSupportedServerSnapshot
-  );
+  const {
+    supported: speechSupported,
+    listening: isListening,
+    toggle: toggleListening,
+    stop: stopDictation,
+  } = useDictation((phrase) => setNote((prev) => appendPhrase(prev, phrase)));
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<ISpeechRecognition | null>(null);
-
-  useEffect(() => {
-    const SpeechRecognitionAPI =
-      window.SpeechRecognition ?? window.webkitSpeechRecognition;
-
-    if (SpeechRecognitionAPI) {
-      const recognition: ISpeechRecognition = new SpeechRecognitionAPI();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          setNote((prev) => prev + (prev ? " " : "") + finalTranscript);
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
 
   // Reset local state when the modal closes (adjust-state-during-render pattern).
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
     if (!isOpen) {
       setNote("");
-      setIsListening(false);
     }
   }
 
@@ -137,28 +40,11 @@ export default function TouchModal({
     if (isOpen && textareaRef.current) {
       textareaRef.current.focus();
     }
-    if (!isOpen && recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-  }, [isOpen]);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) return;
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      recognitionRef.current.start();
-      setIsListening(true);
-    }
-  };
+    if (!isOpen) stopDictation();
+  }, [isOpen, stopDictation]);
 
   const handleSubmit = async (withNote: boolean) => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
+    if (isListening) stopDictation();
     await onSubmit(withNote ? note.trim() : "");
     setNote("");
   };

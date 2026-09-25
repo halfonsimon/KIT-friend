@@ -27,6 +27,7 @@ export async function updateSettings(formData: FormData): Promise<SettingsAction
       sendEmailDigest: formData.get("sendEmailDigest") === "on",
       digestTime: String(formData.get("digestTime") ?? ""),
       digestEmail: digestEmail || null,
+      dailyGoal: toNumber(formData.get("dailyGoal")),
     });
   } catch (err) {
     // Report each invalid field (e.g. "digestEmail", "defaultsByCategory.WORK") to the form.
@@ -41,6 +42,7 @@ export async function updateSettings(formData: FormData): Promise<SettingsAction
     throw err;
   }
 
+  revalidatePath("/");
   revalidatePath("/digest");
   revalidatePath("/settings");
   redirect("/settings");

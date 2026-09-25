@@ -12,6 +12,7 @@ const CUSTOM: AppSettings = {
   sendEmailDigest: false,
   digestTime: "07:30",
   digestEmail: "alice+digest@example.com",
+  dailyGoal: 5,
 };
 
 describe("settings", () => {
@@ -39,6 +40,8 @@ describe("settings", () => {
     ["an interval over a year", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, FAMILY: 366 } }],
     ["a digest time that isn't HH:MM", { digestTime: "25:00" }],
     ["an invalid digest email", { digestEmail: "not-an-email" }],
+    ["a daily goal of zero", { dailyGoal: 0 }],
+    ["a daily goal above 20", { dailyGoal: 21 }],
   ])("rejects %s and saves nothing", async (_, change) => {
     const alice = await createUser("alice@example.com");
 
@@ -71,6 +74,7 @@ describe("settings", () => {
       sendEmailDigest: true,
       digestTime: "06:00",
       digestEmail: null,
+      dailyGoal: 3,
     });
   });
 
