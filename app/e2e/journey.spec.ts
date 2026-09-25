@@ -16,10 +16,11 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
 
   for (const name of ["Ada Lovelace", "Grace Hopper"]) {
     await page.goto("/contacts/new");
-    await page.locator('input[name="name"]').fill(name);
-    await page.locator('select[name="category"]').selectOption("FRIEND");
-    await page.locator('input[name="intervalDays"]').fill("7");
-    await page.getByRole("button", { name: "Create Contact" }).click();
+    const sheet = page.getByRole("dialog", { name: "Add someone" });
+    await sheet.getByLabel("Name").fill(name);
+    await sheet.getByText("Friend", { exact: true }).click();
+    await sheet.getByLabel("Days between check-ins").fill("7");
+    await sheet.getByRole("button", { name: "Add contact" }).click();
     await expect(page).toHaveURL(/\/contacts$/);
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }

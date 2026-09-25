@@ -58,3 +58,22 @@ test("We talked from Contacts records a Touch", async ({ page }) => {
   // Daniel is up to date now, so he moves below Maya.
   await expect(rows(page)).toHaveText([/Noa/, /Maya/, /Daniel/, /Avi/]);
 });
+
+test("Add contact fills the days from the category default and adds them to the list", async ({ page }) => {
+  const userId = await userWithContacts(page, "contacts-add");
+  await db.setting.create({ data: { userId, defaultFamilyDays: 5 } });
+  await page.goto("/contacts");
+  await page.getByRole("link", { name: "Add contact" }).first().click();
+
+  const sheet = page.getByRole("dialog", { name: "Add someone" });
+  await sheet.getByLabel("Name").fill("Tamar");
+  await sheet.getByText("Family", { exact: true }).click();
+  await expect(sheet.getByLabel("Days between check-ins")).toHaveValue("5");
+  await expect(sheet.getByText("Filled in from your Family default.")).toBeVisible();
+  await sheet.getByRole("button", { name: "Add contact" }).click();
+
+  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page.getByRole("link", { name: "Tamar", exact: true })).toBeVisible();
+  const tamar = await db.contact.findFirstOrThrow({ where: { userId, name: "Tamar" } });
+  expect(tamar).toMatchObject({ category: "FAMILY", intervalDays: 5, isActive: true });
+});

@@ -4,8 +4,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { categoryStyle } from "@/components/ui/CategoryChip";
-import { deleteContact, updateContact, type ActionState } from "@/app/(app)/contacts/actions";
-import { CATEGORY_VALUES, type Category } from "@/lib/contact";
+import { createContact, deleteContact, updateContact, type ActionState } from "@/app/(app)/contacts/actions";
+import { CATEGORY_VALUES, DEFAULT_CATEGORY, type Category } from "@/lib/contact";
 
 export type EditableContact = {
   id: string;
@@ -25,24 +25,35 @@ function FieldError({ message }: { message?: string }) {
 }
 
 /**
- * "Edit Noa": a side sheet on wide screens, a bottom sheet on phones.
- * Saves and deletes through the contact Server Actions.
+ * "Add someone" (no `contact`) or "Edit Noa": a side sheet on wide screens,
+ * a bottom sheet on phones. Saves, creates and deletes through the contact
+ * Server Actions.
  */
-export default function EditSheet({
+export default function ContactSheet({
   contact,
   defaults,
   onClose,
 }: {
-  contact: EditableContact;
+  contact?: EditableContact;
   defaults: Record<Category, number>;
   onClose: () => void;
 }) {
-  const [state, save, saving] = useActionState<ActionState | null, FormData>(updateContact, null);
+  const adding = !contact;
+  const [state, save, saving] = useActionState<ActionState | null, FormData>(adding ? createContact : updateContact, null);
   const [deleteState, remove, deleting] = useActionState<ActionState | null, FormData>(deleteContact, null);
-  const [category, setCategory] = useState<Category>(contact.category);
-  const [paused, setPaused] = useState(!contact.isActive);
+  const [category, setCategory] = useState<Category>(contact?.category ?? DEFAULT_CATEGORY);
+  const [paused, setPaused] = useState(contact ? !contact.isActive : false);
+  // Adding: the days follow the category's default until the user types their own.
+  const [days, setDays] = useState(String(contact?.intervalDays ?? defaults[category]));
+  const [daysTyped, setDaysTyped] = useState(!adding);
   const nameRef = useRef<HTMLInputElement>(null);
-  const headingId = `edit-${contact.id}`;
+  const headingId = `contact-sheet-${contact?.id ?? "new"}`;
+  const title = contact ? `Edit ${contact.name}` : "Add someone";
+
+  const pickCategory = (cat: Category) => {
+    setCategory(cat);
+    if (!daysTyped) setDays(String(defaults[cat]));
+  };
   const errors = state?.fieldErrors ?? {};
   const message = state?.message ?? deleteState?.message;
 
@@ -65,7 +76,7 @@ export default function EditSheet({
         <span aria-hidden="true" className="h-[5px] w-10 self-center rounded-full bg-[#d5d8e6] md:hidden" />
         <div className="flex items-center justify-between">
           <h2 id={headingId} className="text-[26px] font-extrabold tracking-[-0.03em] md:text-[28px]">
-            Edit {contact.name}
+            {title}
           </h2>
           <button
             type="button"
@@ -78,14 +89,15 @@ export default function EditSheet({
         </div>
 
         <form action={save} className="flex flex-1 flex-col gap-3.5 md:gap-5">
-          <input type="hidden" name="id" value={contact.id} />
+          {contact && <input type="hidden" name="id" value={contact.id} />}
 
           <label className="flex flex-col gap-2">
             <span className="text-sm font-bold">Name</span>
             <input
               ref={nameRef}
               name="name"
-              defaultValue={contact.name}
+              defaultValue={contact?.name}
+              placeholder="Their name"
               required
               aria-invalid={!!errors.name}
               className={fieldClass}
@@ -95,7 +107,13 @@ export default function EditSheet({
 
           <label className="flex flex-col gap-2">
             <span className="text-sm font-bold">Phone</span>
-            <input name="phone" type="tel" defaultValue={contact.phone ?? ""} className={fieldClass} />
+            <input
+              name="phone"
+              type="tel"
+              defaultValue={contact?.phone ?? ""}
+              placeholder="+972 …"
+              className={fieldClass}
+            />
             <span className="text-[13px] text-muted">Optional. Adds a Call button.</span>
           </label>
 
@@ -117,7 +135,7 @@ export default function EditSheet({
                       name="category"
                       value={cat}
                       checked={active}
-                      onChange={() => setCategory(cat)}
+                      onChange={() => pickCategory(cat)}
                       className="sr-only"
                     />
                     <Icon name={style.icon} size={15} />
@@ -138,7 +156,11 @@ export default function EditSheet({
                 name="intervalDays"
                 type="number"
                 min={1}
-                defaultValue={contact.intervalDays}
+                value={days}
+                onChange={(e) => {
+                  setDays(e.target.value);
+                  setDaysTyped(true);
+                }}
                 aria-label="Days between check-ins"
                 aria-invalid={!!errors.intervalDays}
                 className={`${fieldClass} w-24!`}
@@ -146,32 +168,38 @@ export default function EditSheet({
               <span className="text-base font-semibold">days</span>
             </div>
             <span className="text-[13px] text-muted">
-              Your default for {categoryStyle[category].label} is {defaults[category]} days. Leave it empty to use it.
+              {!daysTyped
+                ? `Filled in from your ${categoryStyle[category].label} default.`
+                : `Your default for ${categoryStyle[category].label} is ${defaults[category]} days. Leave it empty to use it.`}
             </span>
             <FieldError message={errors.intervalDays} />
           </div>
 
-          <div className="flex items-center gap-3.5 rounded-[20px] bg-ground p-4">
-            <span className="flex flex-1 flex-col gap-0.5">
-              <span className="text-[15px] font-bold">Pause {contact.name}</span>
-              <span className="text-[13px] text-muted">
-                Leave them out of Today and the daily email. They stay in Contacts.
+          {contact ? (
+            <div className="flex items-center gap-3.5 rounded-[20px] bg-ground p-4">
+              <span className="flex flex-1 flex-col gap-0.5">
+                <span className="text-[15px] font-bold">Pause {contact.name}</span>
+                <span className="text-[13px] text-muted">
+                  Leave them out of Today and the daily email. They stay in Contacts.
+                </span>
               </span>
-            </span>
-            {!paused && <input type="hidden" name="isActive" value="on" />}
-            <button
-              type="button"
-              role="switch"
-              aria-checked={paused}
-              aria-label={`Pause ${contact.name}`}
-              onClick={() => setPaused((p) => !p)}
-              className={`flex h-8 w-[52px] shrink-0 rounded-full p-[3px] transition-colors ${
-                paused ? "justify-end bg-brand" : "justify-start bg-[#d5d8e6]"
-              }`}
-            >
-              <span className="h-[26px] w-[26px] rounded-full bg-white shadow-sm" />
-            </button>
-          </div>
+              {!paused && <input type="hidden" name="isActive" value="on" />}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={paused}
+                aria-label={`Pause ${contact.name}`}
+                onClick={() => setPaused((p) => !p)}
+                className={`flex h-8 w-[52px] shrink-0 rounded-full p-[3px] transition-colors ${
+                  paused ? "justify-end bg-brand" : "justify-start bg-[#d5d8e6]"
+                }`}
+              >
+                <span className="h-[26px] w-[26px] rounded-full bg-white shadow-sm" />
+              </button>
+            </div>
+          ) : (
+            <input type="hidden" name="isActive" value="on" />
+          )}
 
           {message && (
             <p role="alert" className="text-sm font-semibold text-danger">
@@ -182,7 +210,7 @@ export default function EditSheet({
           <div className="flex-1" />
           <div className="flex gap-2.5">
             <button type="submit" disabled={saving || deleting} className={buttonClass("primary", "lg", "flex-1")}>
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? "Saving…" : adding ? "Add contact" : "Save changes"}
             </button>
             <button type="button" onClick={onClose} className={buttonClass("soft", "lg")}>
               Cancel
@@ -190,21 +218,23 @@ export default function EditSheet({
           </div>
         </form>
 
-        <form
-          action={remove}
-          onSubmit={(e) => {
-            if (!confirm(`Delete ${contact.name}? Their notes go too. This can't be undone.`)) e.preventDefault();
-          }}
-        >
-          <input type="hidden" name="id" value={contact.id} />
-          <button
-            type="submit"
-            disabled={saving || deleting}
-            className="h-11 w-full rounded-full text-[15px] font-bold text-danger hover:bg-danger/5 disabled:opacity-50"
+        {contact && (
+          <form
+            action={remove}
+            onSubmit={(e) => {
+              if (!confirm(`Delete ${contact.name}? Their notes go too. This can't be undone.`)) e.preventDefault();
+            }}
           >
-            {deleting ? "Deleting…" : "Delete contact"}
-          </button>
-        </form>
+            <input type="hidden" name="id" value={contact.id} />
+            <button
+              type="submit"
+              disabled={saving || deleting}
+              className="h-11 w-full rounded-full text-[15px] font-bold text-danger hover:bg-danger/5 disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : "Delete contact"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

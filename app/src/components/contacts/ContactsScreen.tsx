@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import CategoryChip, { categoryStyle } from "@/components/ui/CategoryChip";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import TalkSheet from "@/components/today/TalkSheet";
 import { everyLabel, type TodayPerson } from "@/components/today/types";
 import { Toast, useTalk } from "@/components/talk/useTalk";
 import { CATEGORY_VALUES, type Category } from "@/lib/contact";
+import ContactSheet from "./ContactSheet";
 
 /** A row of the Contacts list: a person plus where they stand. */
 export type ContactRow = TodayPerson & {
@@ -159,7 +161,17 @@ function SwipeRow({
 
 /* ---------- The screen ---------- */
 
-export default function ContactsScreen({ contacts }: { contacts: ContactRow[] }) {
+export default function ContactsScreen({
+  contacts,
+  defaults,
+  adding = false,
+}: {
+  contacts: ContactRow[];
+  defaults: Record<Category, number>;
+  /** Open with the "Add someone" sheet (at /contacts/new). */
+  adding?: boolean;
+}) {
+  const router = useRouter();
   const { talk, undo, toast, busyId } = useTalk();
   const [talkingTo, setTalkingTo] = useState<ContactRow | null>(null);
   const [query, setQuery] = useState("");
@@ -214,6 +226,7 @@ export default function ContactsScreen({ contacts }: { contacts: ContactRow[] })
 
   const openTalk = useCallback((c: ContactRow) => setTalkingTo(c), []);
   const closeSheet = useCallback(() => setTalkingTo(null), []);
+  const closeAdd = useCallback(() => router.replace("/contacts", { scroll: false }), [router]);
 
   const search = (
     <label className="flex h-12 flex-1 items-center gap-2.5 rounded-full bg-white px-[18px] text-muted shadow-[0_10px_30px_-20px_rgba(30,40,120,0.4)] xl:h-[52px]">
@@ -388,6 +401,7 @@ export default function ContactsScreen({ contacts }: { contacts: ContactRow[] })
           }}
         />
       )}
+      {adding && <ContactSheet defaults={defaults} onClose={closeAdd} />}
       <Toast toast={toast} onUndo={undo} />
     </div>
   );

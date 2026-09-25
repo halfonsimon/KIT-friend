@@ -12,7 +12,7 @@ import TalkSheet from "@/components/today/TalkSheet";
 import { everyLabel, lowerFirst, type TodayPerson } from "@/components/today/types";
 import { Toast, useTalk } from "@/components/talk/useTalk";
 import type { Category } from "@/lib/contact";
-import EditSheet from "./EditSheet";
+import ContactSheet from "./ContactSheet";
 
 export type ContactNote = { id: string; date: string; note: string };
 
@@ -186,7 +186,7 @@ export default function ContactScreen({ person, isActive, notes, notesSummary, d
         />
       )}
       {editOpen && (
-        <EditSheet
+        <ContactSheet
           contact={{
             id: person.id,
             name: person.name,
