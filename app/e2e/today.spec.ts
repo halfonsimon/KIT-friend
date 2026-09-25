@@ -67,3 +67,24 @@ test("One at a time goes person by person, and Later only skips for this visit",
   await page.reload();
   await expect(page.getByRole("button", { name: "One at a time", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("Undo takes back a Touch and the note saved with it", async ({ page }) => {
+  const userId = await userWithOverdueContacts(page, "today-undo");
+  await page.goto("/");
+  await page.getByRole("button", { name: "List", exact: true }).click();
+
+  await page.getByRole("article").filter({ hasText: "Noa" }).getByRole("button", { name: "We talked" }).click();
+  const sheet = page.getByRole("dialog", { name: "You talked with Noa" });
+  await sheet.getByRole("textbox", { name: "Note" }).fill("Wrong person");
+  await sheet.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByRole("status")).toHaveText("Note saved for Noa");
+
+  await page.getByRole("button", { name: "Undo" }).click();
+
+  await expect(page.getByRole("heading", { name: "Start with these 3" })).toBeVisible();
+  await expect(page.getByText("0 of 3 done").filter({ visible: true })).toBeVisible();
+  expect(await notesFor(userId, "Noa")).toEqual([]);
+  const noa = await db.contact.findFirstOrThrow({ where: { userId, name: "Noa" } });
+  // Back to 30 days ago (to the second the test created it), not today.
+  expect(noa.lastContactedAt!.getTime()).toBeLessThan(daysAgo(29).getTime());
+});

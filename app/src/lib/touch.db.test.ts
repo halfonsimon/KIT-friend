@@ -4,7 +4,7 @@ import { roster } from "./roster";
 import { fakeRelationshipMemory } from "@/test/fake-relationship-memory";
 import { contactsOf } from "./contacts-of";
 import { readStoredAiMemory } from "./contact";
-import { recordTouch } from "./touch";
+import { recordTouch, undoTouch } from "./touch";
 
 const NOW = new Date("2026-03-10T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
@@ -29,6 +29,7 @@ describe("recordTouch", () => {
     expect(result).toEqual({
       id: friend.id,
       lastContactedAt: NOW,
+      previousContactedAt: daysAgo(10),
       status: "ok",
       daysUntilDue: 7,
       nextDueAt: new Date("2026-03-17T00:00:00Z"),
@@ -191,5 +192,67 @@ describe("recordTouch", () => {
 
     await expect(deferred[0]()).resolves.toBeUndefined();
     expect(await prisma.contact.count()).toBe(0);
+  });
+});
+
+describe("undoTouch", () => {
+  const LATER = new Date(NOW.getTime() + 60_000);
+
+  it("puts the last touch back and drops the note saved with it", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    await prisma.interaction.create({ data: { contactId: friend.id, note: "Earlier note", notedAt: daysAgo(10) } });
+    const touch = await recordTouch({ userId: alice.id, contactId: friend.id, note: "Oops", now: NOW });
+
+    const undone = await undoTouch({
+      userId: alice.id,
+      contactId: friend.id,
+      touchedAt: NOW,
+      restoreTo: touch!.previousContactedAt,
+    });
+
+    expect(undone).toBe(true);
+    const [listed] = await roster(alice.id, NOW);
+    expect(listed).toMatchObject({ lastContactedAt: daysAgo(10), status: "overdue" });
+    const notes = await prisma.interaction.findMany({ where: { contactId: friend.id } });
+    expect(notes.map((n) => n.note)).toEqual(["Earlier note"]);
+  });
+
+  it("restores a contact that had never been touched", async () => {
+    const alice = await createUser("alice@example.com");
+    const fresh = await prisma.contact.create({ data: { userId: alice.id, name: "Fresh", intervalDays: 7 } });
+    const touch = await recordTouch({ userId: alice.id, contactId: fresh.id, note: "", now: NOW });
+
+    expect(touch!.previousContactedAt).toBeNull();
+    await undoTouch({ userId: alice.id, contactId: fresh.id, touchedAt: NOW, restoreTo: null });
+
+    const [listed] = await roster(alice.id, NOW);
+    expect(listed.lastContactedAt).toBeNull();
+  });
+
+  it("does nothing once the contact was touched again", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    await recordTouch({ userId: alice.id, contactId: friend.id, note: "", now: NOW });
+    await recordTouch({ userId: alice.id, contactId: friend.id, note: "", now: LATER });
+
+    const undone = await undoTouch({ userId: alice.id, contactId: friend.id, touchedAt: NOW, restoreTo: daysAgo(10) });
+
+    expect(undone).toBe(false);
+    const [listed] = await roster(alice.id, LATER);
+    expect(listed.lastContactedAt).toEqual(LATER);
+  });
+
+  it("can't undo on another user's contact", async () => {
+    const alice = await createUser("alice@example.com");
+    const bob = await createUser("bob@example.com");
+    const bobsFriend = await createContact(bob.id, "Bob's friend");
+    await recordTouch({ userId: bob.id, contactId: bobsFriend.id, note: "", now: NOW });
+
+    const undone = await undoTouch({ userId: alice.id, contactId: bobsFriend.id, touchedAt: NOW, restoreTo: null });
+
+    expect(undone).toBeNull();
+    const [listed] = await roster(bob.id, NOW);
+    expect(listed.lastContactedAt).toEqual(NOW);
   });
 });

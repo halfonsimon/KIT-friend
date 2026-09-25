@@ -67,21 +67,40 @@ function peopleWord(n: number) {
   return n === 1 ? "person" : "people";
 }
 
-function Toast({ message }: { message: string | null }) {
+/** What the toast shows: a message, and for a fresh Touch what Undo needs. */
+type ToastState = {
+  message: string;
+  undo?: { contactId: string; touchedAt: string; restoreTo: string | null };
+};
+
+function Toast({ toast, onUndo }: { toast: ToastState | null; onUndo: () => void }) {
+  // The live region is the message alone, always mounted so screen readers
+  // announce each new one; Undo sits beside it.
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="pointer-events-none fixed inset-x-5 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+5rem)] z-50 flex justify-center md:bottom-8"
-    >
-      {message && (
-        <div className="flex h-14 items-center gap-3 rounded-full bg-ink pl-4 pr-6 text-[15px] font-semibold text-white shadow-card">
-          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-brand">
+    <div className="pointer-events-none fixed inset-x-5 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+5rem)] z-50 flex justify-center md:bottom-8">
+      <div
+        className={
+          toast
+            ? `pointer-events-auto flex h-14 max-w-full items-center gap-3 rounded-full bg-ink pl-4 text-[15px] font-semibold text-white shadow-card ${
+                toast.undo ? "pr-2" : "pr-6"
+              }`
+            : "sr-only"
+        }
+      >
+        {toast && (
+          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-brand">
             <Icon name="check" size={14} strokeWidth={3} />
           </span>
-          {message}
-        </div>
-      )}
+        )}
+        <span role="status" aria-live="polite" className="truncate">
+          {toast?.message}
+        </span>
+        {toast?.undo && (
+          <button type="button" onClick={onUndo} className={buttonClass("onBrand", "sm", "ml-auto h-10")}>
+            Undo
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -160,13 +179,14 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
   const [mode, setMode] = useMode();
   const [talkingTo, setTalkingTo] = useState<TodayPerson | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [keepGoing, setKeepGoing] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
+    // Long enough to reach Undo after "We talked".
+    const t = setTimeout(() => setToast(null), toast.undo ? 7000 : 4000);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -185,12 +205,20 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ note }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setToast(note ? `Note saved for ${person.name}` : `${person.name} marked as talked`);
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body?.ok) throw new Error(`HTTP ${res.status}`);
+        setToast({
+          message: note ? `Note saved for ${person.name}` : `${person.name} marked as talked`,
+          undo: {
+            contactId: person.id,
+            touchedAt: body.data.lastContactedAt,
+            restoreTo: body.data.previousContactedAt ?? null,
+          },
+        });
         startTransition(() => router.refresh());
         return true;
       } catch {
-        setToast("Couldn’t save. Check your connection and try again.");
+        setToast({ message: "Couldn’t save. Check your connection and try again." });
         return false;
       } finally {
         setBusyId(null);
@@ -198,6 +226,20 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
     },
     [router]
   );
+
+  /** Take back the last Touch: its date goes back and its note is dropped. */
+  const undo = useCallback(async () => {
+    const last = toast?.undo;
+    if (!last) return;
+    setToast(null);
+    const res = await fetch(`/api/contacts/${last.contactId}/touch`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ touchedAt: last.touchedAt, restoreTo: last.restoreTo }),
+    }).catch(() => null);
+    if (!res?.ok) setToast({ message: "Couldn’t undo. It was saved." });
+    startTransition(() => router.refresh());
+  }, [toast, router]);
 
   const closeSheet = useCallback(() => setTalkingTo(null), []);
 
@@ -325,7 +367,7 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
           }}
         />
       )}
-      <Toast message={toast} />
+      <Toast toast={toast} onUndo={undo} />
     </div>
   );
 }
