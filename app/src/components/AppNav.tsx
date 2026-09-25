@@ -119,7 +119,11 @@ export default function AppNav({ user }: { user: NavUser | null }) {
         </div>
       </header>
 
-      {/* Phone: floating glass bar at the bottom. */}
+      {/* Phone: floating glass bar at the bottom, over a fade so lists scroll away under it. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[150px] bg-linear-to-b from-ground/0 to-ground to-55% md:hidden"
+      />
       <nav
         aria-label="Main"
         className="glass fixed inset-x-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 grid h-16 grid-cols-3 gap-1 rounded-full p-1.5 md:hidden"

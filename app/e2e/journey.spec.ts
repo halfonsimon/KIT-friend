@@ -21,7 +21,7 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
     await page.locator('input[name="intervalDays"]').fill("7");
     await page.getByRole("button", { name: "Create Contact" }).click();
     await expect(page).toHaveURL(/\/contacts$/);
-    await expect(page.getByText(name).first()).toBeVisible();
+    await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }
 
   // A Contact added through the UI is never due yet, so make Ada's last Touch
@@ -33,18 +33,11 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
 
   // Record a Touch with a note on Grace.
   await page.reload();
-  // The innermost block holding both her name and a Touch button is her card.
-  await page
-    .locator("div")
-    .filter({ has: page.getByRole("heading", { name: "Grace Hopper" }) })
-    .filter({ has: page.getByRole("button", { name: "Touch" }) })
-    .last()
-    .getByRole("button", { name: "Touch" })
-    .click();
-  await expect(page.getByText("Touched base with Grace Hopper")).toBeVisible();
-  await page.getByPlaceholder(/Talked about her new job/).fill("Coffee, talked about COBOL.");
+  await page.getByRole("button", { name: "We talked with Grace Hopper" }).click();
+  const sheet = page.getByRole("dialog", { name: "You talked with Grace Hopper" });
+  await sheet.getByRole("textbox", { name: "Note" }).fill("Coffee, talked about COBOL.");
   const touched = page.waitForResponse((r) => r.url().includes("/touch") && r.request().method() === "POST");
-  await page.getByRole("button", { name: "Save Note" }).click();
+  await sheet.getByRole("button", { name: "Save note" }).click();
   expect((await touched).status()).toBe(200);
 
   const grace = await db.contact.findFirstOrThrow({

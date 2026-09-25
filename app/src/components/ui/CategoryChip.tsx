@@ -2,11 +2,11 @@ import type { Category } from "@/lib/contact";
 import Icon, { type IconName } from "./Icon";
 
 // Each category's tint, ink and icon. Chips are told apart by icon and label, not colour alone.
-export const categoryStyle: Record<Category, { label: string; icon: IconName; chip: string }> = {
-  FAMILY: { label: "Family", icon: "family", chip: "bg-family text-family-ink" },
-  FRIEND: { label: "Friend", icon: "friend", chip: "bg-friend text-friend-ink" },
-  WORK: { label: "Work", icon: "work", chip: "bg-work text-work-ink" },
-  OTHER: { label: "Other", icon: "other", chip: "bg-other text-other-ink" },
+export const categoryStyle: Record<Category, { label: string; icon: IconName; chip: string; ink: string }> = {
+  FAMILY: { label: "Family", icon: "family", chip: "bg-family text-family-ink", ink: "text-family-ink" },
+  FRIEND: { label: "Friend", icon: "friend", chip: "bg-friend text-friend-ink", ink: "text-friend-ink" },
+  WORK: { label: "Work", icon: "work", chip: "bg-work text-work-ink", ink: "text-work-ink" },
+  OTHER: { label: "Other", icon: "other", chip: "bg-other text-other-ink", ink: "text-other-ink" },
 };
 
 export default function CategoryChip({ category }: { category: Category }) {
