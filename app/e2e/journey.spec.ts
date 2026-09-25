@@ -48,10 +48,12 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
   expect(grace.lastContactedAt).not.toBeNull();
   expect(grace.interactions.map((i) => i.note)).toEqual(["Coffee, talked about COBOL."]);
 
-  // Send the Digest from the digest page.
+  // Send the Digest from Settings (the old /digest address leads there).
   await page.goto("/digest");
-  await page.getByRole("button", { name: "Send Test Email" }).click();
-  await expect(page.getByText(`Sent to: ${user.email}`)).toBeVisible();
+  await expect(page).toHaveURL(/\/settings/);
+  await expect(page.getByText("Ada Lovelace")).toBeVisible();
+  await page.getByRole("button", { name: "Send me one now" }).click();
+  await expect(page.getByText(`Sent to ${user.email}`)).toBeVisible();
 
   const [mail] = await expectMailTo(user.email, 1);
   expect(mail.subject).toBe("Keep In Touch — 1 overdue, 0 today");
