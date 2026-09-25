@@ -33,6 +33,7 @@ const paths = {
     </>
   ),
   check: <path d="M20 6 9 17l-5-5" />,
+  edit: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />,
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />

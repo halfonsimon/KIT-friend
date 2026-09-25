@@ -143,7 +143,7 @@ function SwipeRow({
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.chip}`}>
           <Icon name={style.icon} size={17} />
         </span>
-        <Link href={`/contacts/${person.id}/edit`} className="flex min-w-0 flex-1 flex-col text-ink">
+        <Link href={`/contacts/${person.id}`} className="flex min-w-0 flex-1 flex-col text-ink">
           <span className={`truncate text-base font-bold ${person.isActive ? "" : "text-muted"}`}>{person.name}</span>
           <span className="truncate text-[13px] text-muted">
             {person.isActive ? person.lastTalkedShort : `Paused · ${person.lastTalkedShort}`}
@@ -345,7 +345,7 @@ export default function ContactsScreen({ contacts }: { contacts: ContactRow[] })
                   className="grid h-[60px] grid-cols-[1fr_130px_150px_190px_110px_44px_120px] items-center gap-3 border-b border-ink/[0.07] last:border-b-0"
                 >
                   <Link
-                    href={`/contacts/${c.id}/edit`}
+                    href={`/contacts/${c.id}`}
                     className={`truncate text-base font-bold hover:text-brand ${c.isActive ? "text-ink" : "text-muted"}`}
                   >
                     {c.name}
