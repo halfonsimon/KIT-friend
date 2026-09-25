@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CategoryChip, { categoryStyle } from "@/components/ui/CategoryChip";
@@ -12,6 +12,7 @@ import { everyLabel, type TodayPerson } from "@/components/today/types";
 import { Toast, useTalk } from "@/components/talk/useTalk";
 import { CATEGORY_VALUES, type Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
+import { swipeMove, swipeTalks } from "./swipe";
 
 /** A row of the Contacts list: a person plus where they stand. */
 export type ContactRow = TodayPerson & {
@@ -83,8 +84,6 @@ function FilterGroup<T extends string>({
 
 /* ---------- Phone: a row you can swipe right for "We talked" ---------- */
 
-const SWIPE_TRIGGER = 110;
-
 function SwipeRow({
   person,
   busy,
@@ -98,27 +97,43 @@ function SwipeRow({
 }) {
   const [dx, setDx] = useState(0);
   const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  // Set once the finger has clearly moved right; until then it's still a tap.
+  const swiping = useRef(false);
+  // When the last swipe ended: the click a browser may send right after it is swallowed.
+  const swipedAt = useRef(0);
   const style = categoryStyle[person.category];
 
   const onPointerDown = (e: PointerEvent) => {
     if (e.pointerType === "mouse") return;
     start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    swiping.current = false;
   };
   const onPointerMove = (e: PointerEvent) => {
     const s = start.current;
     if (!s || s.id !== e.pointerId) return;
-    const x = e.clientX - s.x;
-    // A mostly vertical move is a scroll: let it go.
-    if (dx === 0 && Math.abs(e.clientY - s.y) > Math.abs(x)) {
+    const move = swipeMove(s, { x: e.clientX, y: e.clientY }, swiping.current);
+    if (move === "tap") return;
+    if (move === "scroll") {
       start.current = null;
       return;
     }
-    setDx(Math.max(0, Math.min(x, 160)));
+    swiping.current = true;
+    setDx(move.dx);
   };
   const onPointerEnd = () => {
-    if (dx >= SWIPE_TRIGGER && !busy) onSwipeTalk();
+    if (swiping.current) {
+      swipedAt.current = Date.now();
+      if (swipeTalks(dx) && !busy) onSwipeTalk();
+    }
     start.current = null;
+    swiping.current = false;
     setDx(0);
+  };
+  const onClickCapture = (e: MouseEvent) => {
+    if (Date.now() - swipedAt.current > 400) return;
+    swipedAt.current = 0;
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   return (
@@ -137,6 +152,7 @@ function SwipeRow({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
+        onClickCapture={onClickCapture}
         style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
         className={`relative flex h-16 touch-pan-y items-center gap-3 bg-white px-4 ${
           dx ? "shadow-[-12px_0_24px_-12px_rgba(14,16,36,0.35)]" : "transition-transform"

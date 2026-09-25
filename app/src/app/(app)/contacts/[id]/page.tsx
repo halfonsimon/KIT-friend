@@ -4,10 +4,8 @@ import ContactScreen, { type ContactNote } from "@/components/contacts/ContactSc
 import { toTodayPerson } from "@/components/today/types";
 import { requireUser } from "@/lib/auth-utils";
 import { asCategory, readStoredAiMemory } from "@/lib/contact";
-import { contactsOf } from "@/lib/contacts-of";
-import { prisma } from "@/lib/db";
+import { contactPage } from "@/lib/contact-page";
 import { computeStatus } from "@/lib/due";
-import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -22,17 +20,11 @@ const month = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", timeZo
 export default async function ContactPage({ params, searchParams }: Props) {
   const userId = await requireUser();
   const [{ id }, { edit }] = await Promise.all([params, searchParams]);
-  const contact = await contactsOf(userId).get(id);
-  if (!contact) notFound();
+  const page = await contactPage(userId, id);
+  if (!page) notFound();
+  const { contact, settings, interactions } = page;
 
   const now = new Date();
-  const [settings, interactions] = await Promise.all([
-    getSettings(userId),
-    prisma.interaction.findMany({
-      where: { contactId: contact.id },
-      orderBy: { notedAt: "desc" },
-    }),
-  ]);
 
   const person = toTodayPerson(
     {
