@@ -4,8 +4,9 @@
  * for Settings. Takes `now` and the Mailer as inputs so the rules can be
  * tested without a clock or SMTP.
  */
+import { digestStatusLabel } from "./contact-card";
 import { buildDigest, type DigestData, type DigestItem } from "./digest";
-import { isSameUtcDay, statusLabel } from "./due";
+import { isSameUtcDay } from "./due";
 import { renderDigestEmail } from "./email";
 import type { Mailer } from "./mailer";
 import {
@@ -24,7 +25,7 @@ function recipientFor(settings: AppSettings, accountEmail: string): string {
 /** Build, render and send one user's digest. */
 async function sendDigest(userId: string, to: string, now: Date, mailer: Mailer) {
   const digest = await buildDigest(userId, now);
-  const { subject, html } = renderDigestEmail(digest);
+  const { subject, html } = renderDigestEmail(digest, now);
   const sent = await mailer.send({ to: [to], subject, html });
   return { messageId: sent.messageId, stats: digest.stats };
 }
@@ -71,7 +72,7 @@ export type DigestPreview = {
   lastSent: { at: Date; today: boolean } | null;
 };
 
-const toPreviewItem = (i: DigestItem): PreviewItem => ({ id: i.id, name: i.name, label: statusLabel(i) });
+const toPreviewItem = (i: DigestItem): PreviewItem => ({ id: i.id, name: i.name, label: digestStatusLabel(i) });
 
 /**
  * What today's digest would be for one user at `now` (the "Today's email"
@@ -90,7 +91,7 @@ export async function previewDigest(input: {
   const due = [...digest.overdue, ...digest.today];
   return {
     recipient: recipientFor(settings, input.accountEmail),
-    subject: renderDigestEmail(digest).subject,
+    subject: renderDigestEmail(digest, input.now).subject,
     due: due.slice(0, PREVIEW_DUE).map(toPreviewItem),
     moreDue: Math.max(0, due.length - PREVIEW_DUE),
     upcoming: digest.upcoming.map(toPreviewItem),

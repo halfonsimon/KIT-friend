@@ -2,7 +2,7 @@
 import { notFound } from "next/navigation";
 import ContactScreen, { type ContactNote } from "@/components/contacts/ContactScreen";
 import { requireUser } from "@/lib/auth-utils";
-import { contactCard } from "@/lib/contact-card";
+import { contactCard, dayMonth } from "@/lib/contact-card";
 import { contactsOf } from "@/lib/contacts-of";
 import { getSettings } from "@/lib/settings";
 
@@ -13,7 +13,6 @@ type Props = {
   searchParams: Promise<{ edit?: string }>;
 };
 
-const dayMonth = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
 const month = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
 export default async function ContactPage({ params, searchParams }: Props) {
@@ -25,7 +24,7 @@ export default async function ContactPage({ params, searchParams }: Props) {
 
   const person = contactCard(contact, now);
 
-  const notes: ContactNote[] = contact.interactions.map((i) => ({ id: i.id, date: dayMonth(i.notedAt), note: i.note }));
+  const notes: ContactNote[] = contact.interactions.map((i) => ({ id: i.id, date: dayMonth(i.notedAt, now), note: i.note }));
   const oldest = contact.interactions.at(-1)?.notedAt;
   const notesSummary = oldest
     ? `${notes.length} ${notes.length === 1 ? "note" : "notes"} since ${month(oldest)}`

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStatus, statusLabel, type ContactLike } from "./due";
+import { computeStatus, type ContactLike } from "./due";
 
 const NOW = new Date("2025-09-16T12:00:00Z"); // midday to ignore time-of-day effects
 
@@ -118,19 +118,5 @@ describe("computeStatus", () => {
     expect(() => computeStatus({ id: "", name: "Bad" } as unknown as ContactLike)).toThrow(
       "Contact must have an id"
     );
-  });
-});
-
-describe("statusLabel", () => {
-  it("says how many days overdue", () => {
-    expect(statusLabel({ status: "overdue", daysUntilDue: -3 })).toBe("3d overdue");
-  });
-
-  it("says due today", () => {
-    expect(statusLabel({ status: "today", daysUntilDue: 0 })).toBe("Due today");
-  });
-
-  it("says how many days are left", () => {
-    expect(statusLabel({ status: "ok", daysUntilDue: 2 })).toBe("2d left");
   });
 });

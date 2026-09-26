@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactCard, contactList } from "./contact-card";
+import { contactCard, contactList, dayMonth, digestStatusLabel } from "./contact-card";
 import { computeStatus } from "./due";
 import type { RosterContact } from "./roster";
 
@@ -113,6 +113,29 @@ describe("contactCard next-call prompts", () => {
 
   it("is empty without Relationship memory", () => {
     expect(nextCall({})).toEqual([]);
+  });
+});
+
+describe("digestStatusLabel", () => {
+  const label = (lastContactedAt: Date) => digestStatusLabel(row({ lastContactedAt }));
+
+  it("says how many days overdue", () => {
+    expect(label(new Date("2026-03-17T10:00:00Z"))).toBe("3d overdue");
+  });
+
+  it("says Due today", () => {
+    expect(label(new Date("2026-03-20T23:30:00Z"))).toBe("Due today");
+  });
+
+  it("says how many days are left", () => {
+    expect(label(new Date("2026-03-22T08:00:00Z"))).toBe("2d left");
+  });
+});
+
+describe("dayMonth", () => {
+  it("reads day and month by UTC day, with the year only for another year", () => {
+    expect(dayMonth(new Date("2026-03-19T23:30:00Z"), NOW)).toBe("19 March");
+    expect(dayMonth(new Date("2025-12-31T23:30:00Z"), NOW)).toBe("31 December 2025");
   });
 });
 
