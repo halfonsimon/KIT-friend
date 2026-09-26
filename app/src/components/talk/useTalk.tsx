@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 
-/** What the toast shows: a message, and for a fresh Touch what Undo needs. */
+/** What the toast shows: a message, and for a fresh Touch its Undo value. */
 type ToastState = {
   message: string;
-  undo?: { contactId: string; touchedAt: string; restoreTo: string | null };
+  undo?: { contactId: string; value: string };
 };
 
 export function Toast({ toast, onUndo }: { toast: ToastState | null; onUndo: () => void }) {
@@ -74,11 +74,7 @@ export function useTalk() {
         if (!res.ok || !body?.ok) throw new Error(`HTTP ${res.status}`);
         setToast({
           message: note ? `Note saved for ${person.name}` : `${person.name} marked as talked`,
-          undo: {
-            contactId: person.id,
-            touchedAt: body.data.lastContactedAt,
-            restoreTo: body.data.previousContactedAt ?? null,
-          },
+          undo: { contactId: person.id, value: body.data.undo },
         });
         startTransition(() => router.refresh());
         return true;
@@ -100,7 +96,7 @@ export function useTalk() {
     const res = await fetch(`/api/contacts/${last.contactId}/touch`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ touchedAt: last.touchedAt, restoreTo: last.restoreTo }),
+      body: JSON.stringify({ undo: last.value }),
     }).catch(() => null);
     if (!res?.ok) setToast({ message: "Couldn’t undo. It was saved." });
     startTransition(() => router.refresh());

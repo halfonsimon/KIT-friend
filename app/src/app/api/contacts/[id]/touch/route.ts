@@ -7,14 +7,15 @@
  *
  * DELETE /api/contacts/:id/touch
  *
- * Undo a touch: body `{ touchedAt, restoreTo }` from the POST response
- * (`lastContactedAt`, `previousContactedAt`).
+ * Undo a touch: body `{ undo }`, the Undo value from the POST response.
+ * 404 when it's unknown or not the user's, 409 once the contact has been
+ * touched again since.
  */
 
 import { NextResponse, after } from "next/server";
 import { recordTouch, undoTouch } from "@/lib/touch";
 import { geminiMemory } from "@/lib/ai";
-import { auth } from "@/auth";
+import { getOptionalUserId } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +23,10 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getOptionalUserId();
+  if (!userId) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const userId = session.user.id;
 
   const params = await ctx.params;
   const id = params?.id;
@@ -64,7 +64,6 @@ export async function POST(
       data: {
         id: result.id,
         lastContactedAt: result.lastContactedAt,
-        previousContactedAt: result.previousContactedAt,
         undo: result.undo,
         status: result.status,
         daysUntilDue: result.daysUntilDue,
@@ -91,36 +90,24 @@ export async function POST(
   }
 }
 
-function parseDate(value: unknown): Date | null | undefined {
-  if (value === null) return null;
-  if (typeof value !== "string") return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-export async function DELETE(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const session = await auth();
-  if (!session?.user?.id) {
+export async function DELETE(req: Request) {
+  const userId = await getOptionalUserId();
+  if (!userId) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
-  const touchedAt = parseDate(body?.touchedAt);
-  const restoreTo = parseDate(body?.restoreTo);
-  if (!touchedAt || restoreTo === undefined) {
-    return NextResponse.json({ ok: false, error: "touchedAt and restoreTo are required" }, { status: 400 });
+  const undo = body?.undo;
+  if (typeof undo !== "string" || !undo) {
+    return NextResponse.json({ ok: false, error: "undo is required" }, { status: 400 });
   }
 
   try {
-    const undone = await undoTouch({ userId: session.user.id, contactId: id, touchedAt, restoreTo });
-    if (undone === null) {
-      return NextResponse.json({ ok: false, error: "Contact not found" }, { status: 404 });
+    const result = await undoTouch({ userId, undo });
+    if (result === "not_found") {
+      return NextResponse.json({ ok: false, error: "Touch not found" }, { status: 404 });
     }
-    if (!undone) {
+    if (result === "touched_again") {
       return NextResponse.json({ ok: false, error: "Touched again since" }, { status: 409 });
     }
     return NextResponse.json({ ok: true });

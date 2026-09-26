@@ -89,15 +89,29 @@ export function contactsOf(userId: string) {
             previousContactedAt: before.lastContactedAt,
           },
         });
-        return { contact, touchId: saved.id, previousContactedAt: saved.previousContactedAt };
+        return { contact, touchId: saved.id };
       });
     },
 
-    /** Drop the Touch saved on the contact at `at`, with its note (the Undo of a Touch). */
-    async dropNote(id: string, at: Date) {
-      if (!(await owned(id))) return null;
-      await prisma.interaction.deleteMany({ where: { contactId: id, notedAt: at } });
-      return true;
+    /**
+     * Undo the Touch saved as `touchId`: if it is still the contact's latest
+     * Touch, put the contact's last Touch back to the one before it and drop
+     * that Touch with its note. The check and both writes happen together.
+     */
+    async undoTouch(touchId: string): Promise<"undone" | "not_found" | "touched_again"> {
+      return prisma.$transaction(async (tx) => {
+        // Ownership check through the contact: another user's Touch is "not found".
+        const touch = await tx.interaction.findFirst({
+          where: { id: touchId, contact: { userId } },
+          include: { contact: true },
+        });
+        if (!touch) return "not_found";
+        const { contact } = touch;
+        if (contact.lastContactedAt?.getTime() !== touch.notedAt.getTime()) return "touched_again";
+        await tx.contact.update({ where: { id: contact.id }, data: { lastContactedAt: touch.previousContactedAt } });
+        await tx.interaction.delete({ where: { id: touch.id } });
+        return "undone";
+      });
     },
 
     async create(contact: NewContact) {

@@ -13,8 +13,6 @@ import { computeStatus, type Computed } from "./due";
 export type TouchResult = Computed & {
   id: string;
   lastContactedAt: Date;
-  /** The last touch before this one, so the touch can be undone. */
-  previousContactedAt: Date | null;
   /** Opaque value identifying this Touch, for undoing it. */
   undo: string;
 };
@@ -56,33 +54,22 @@ export async function recordTouch(input: {
   return {
     id: touched.id,
     lastContactedAt: input.now,
-    previousContactedAt: saved.previousContactedAt,
     undo: touchId,
     ...computeStatus(touched, input.now),
   };
 }
 
-/**
- * Undo a touch recorded at `touchedAt`: put the last touch back to
- * `restoreTo` and drop the note saved with it. Does nothing (returns false)
- * once the contact has been touched again since. Returns `null` when the
- * contact is missing or not the user's. Relationship memory already learned
- * from the note is kept.
- */
-export async function undoTouch(input: {
-  userId: string;
-  contactId: string;
-  touchedAt: Date;
-  restoreTo: Date | null;
-}): Promise<boolean | null> {
-  const contacts = contactsOf(input.userId);
-  const contact = await contacts.get(input.contactId);
-  if (!contact) return null;
-  if (contact.lastContactedAt?.getTime() !== input.touchedAt.getTime()) return false;
+export type UndoResult = "undone" | "not_found" | "touched_again";
 
-  await contacts.update(contact.id, { lastContactedAt: input.restoreTo });
-  await contacts.dropNote(contact.id, input.touchedAt);
-  return true;
+/**
+ * Undo a Touch by its Undo value (from `recordTouch`): put the contact's last
+ * Touch back to the one stored with it and drop that Touch and its note.
+ * "not_found" when the value is unknown or not the user's; "touched_again"
+ * (changing nothing) once the contact has been touched since. Relationship
+ * memory already learned from the note is kept.
+ */
+export async function undoTouch(input: { userId: string; undo: string }): Promise<UndoResult> {
+  return contactsOf(input.userId).undoTouch(input.undo);
 }
 
 async function rememberNote(

@@ -264,17 +264,18 @@ describe("contactsOf(...) notes", () => {
     expect((await alices.view(friend.id, NOW))?.interactions).toEqual([]);
   });
 
-  it("drops only the Touch saved at the given time", async () => {
+  it("undoes only the given Touch, putting back the last Touch before it", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
     const other = await createContact(alice.id, "Other");
     const alices = contactsOf(alice.id);
     await alices.saveTouch(friend.id, { note: "Earlier", at: daysAgo(3) });
-    await alices.saveTouch(friend.id, { note: "Oops", at: NOW });
+    const oops = await alices.saveTouch(friend.id, { note: "Oops", at: NOW });
     await alices.saveTouch(other.id, { note: "Same time, other contact", at: NOW });
 
-    expect(await alices.dropNote(friend.id, NOW)).toBe(true);
+    expect(await alices.undoTouch(oops!.touchId)).toBe("undone");
 
+    expect((await alices.get(friend.id))?.lastContactedAt).toEqual(daysAgo(3));
     expect((await alices.recentNotes(friend.id, 10))?.map((n) => n.note)).toEqual(["Earlier"]);
     expect((await alices.recentNotes(other.id, 10))?.map((n) => n.note)).toEqual(["Same time, other contact"]);
   });
@@ -296,16 +297,16 @@ describe("contactsOf(...) notes", () => {
     expect(recent?.map((n) => n.note)).toEqual(["Yesterday", "Two days ago", "Three days ago"]);
   });
 
-  it("can't list notes on, save or drop a Touch on another user's contact", async () => {
+  it("can't list notes on, save or undo a Touch on another user's contact", async () => {
     const alice = await createUser("alice@example.com");
     const bob = await createUser("bob@example.com");
     const bobsFriend = await createContact(bob.id, "Bob's friend");
-    await contactsOf(bob.id).saveTouch(bobsFriend.id, { note: "Private", at: daysAgo(1) });
+    const bobs = await contactsOf(bob.id).saveTouch(bobsFriend.id, { note: "Private", at: daysAgo(1) });
     const alices = contactsOf(alice.id);
 
     expect(await alices.recentNotes(bobsFriend.id, 10)).toBeNull();
     expect(await alices.saveTouch(bobsFriend.id, { note: "Planted", at: NOW })).toBeNull();
-    expect(await alices.dropNote(bobsFriend.id, daysAgo(1))).toBeNull();
+    expect(await alices.undoTouch(bobs!.touchId)).toBe("not_found");
 
     expect((await contactsOf(bob.id).recentNotes(bobsFriend.id, 10))?.map((n) => n.note)).toEqual(["Private"]);
     expect((await contactsOf(bob.id).get(bobsFriend.id))?.lastContactedAt).toEqual(daysAgo(1));
