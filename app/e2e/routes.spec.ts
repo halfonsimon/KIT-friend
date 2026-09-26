@@ -107,6 +107,26 @@ test.describe("registration", () => {
     expect(again.status()).toBe(409);
   });
 
+  test("rejects an email that already has an account with 409 when padded with spaces", async ({ request }) => {
+    const user = newUser("dup-padded");
+    await register(request, user);
+
+    const again = await request.post("/api/register", {
+      data: { ...user, email: `  ${user.email} ` },
+    });
+    expect(again.status()).toBe(409);
+  });
+
+  test("an account registered with a padded email signs in with the clean one", async ({ page }) => {
+    const user = newUser("padded");
+    const res = await page.request.post("/api/register", {
+      data: { ...user, email: `  ${user.email.toUpperCase()} ` },
+    });
+    expect(res.status()).toBe(200);
+
+    await signInThroughUi(page, user);
+  });
+
   test("rejects a password under 8 characters with 400", async ({ request }) => {
     const res = await request.post("/api/register", {
       data: { ...newUser("short"), password: "1234567" },
