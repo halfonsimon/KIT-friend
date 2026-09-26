@@ -23,7 +23,7 @@ function hasSMTP() {
 
 /**
  * Two modes:
- * - ?test=true  → authenticated user sends their own digest (UI "Send Test Email" button)
+ * - ?test=true  → authenticated user sends their own digest (Settings' "Send me one now" button)
  * - no test     → cron job sends digest to all users (requires CRON_SECRET bearer)
  */
 export async function POST(request: Request) {
