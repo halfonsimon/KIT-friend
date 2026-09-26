@@ -9,7 +9,8 @@ import { categoryStyle } from "@/components/ui/CategoryChip";
 import { Glow } from "@/components/today/ListMode";
 import { NextCallList } from "@/components/today/bits";
 import TalkSheet from "@/components/today/TalkSheet";
-import { everyLabel, lowerFirst, type TodayPerson } from "@/components/today/types";
+import { lowerFirst } from "@/components/wording";
+import type { ContactCard } from "@/lib/contact-card";
 import { Toast, useTalk } from "@/components/talk/useTalk";
 import type { Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
@@ -17,8 +18,7 @@ import ContactSheet from "./ContactSheet";
 export type ContactNote = { id: string; date: string; note: string };
 
 type Props = {
-  person: TodayPerson;
-  isActive: boolean;
+  person: ContactCard;
   notes: ContactNote[];
   /** "4 talks since February", or null without notes. */
   notesSummary: string | null;
@@ -26,7 +26,7 @@ type Props = {
   editing: boolean;
 };
 
-function WhatYouKnow({ person }: { person: TodayPerson }) {
+function WhatYouKnow({ person }: { person: ContactCard }) {
   const hasMemory = person.aiSummary || person.keyTopics.length > 0;
   return (
     <section className="flex flex-col gap-4 rounded-[28px] bg-white p-5 shadow-card md:p-6">
@@ -86,7 +86,7 @@ function Notes({ notes, summary }: { notes: ContactNote[]; summary: string | nul
 }
 
 /** One Contact: who they are, what you know, your notes, and Edit. */
-export default function ContactScreen({ person, isActive, notes, notesSummary, defaults, editing }: Props) {
+export default function ContactScreen({ person, notes, notesSummary, defaults, editing }: Props) {
   const router = useRouter();
   const { talk, undo, toast, busyId } = useTalk();
   const [talking, setTalking] = useState(false);
@@ -123,9 +123,9 @@ export default function ContactScreen({ person, isActive, notes, notesSummary, d
           <div className="flex flex-wrap items-center gap-2">
             <span className="flex h-8 items-center gap-1.5 rounded-full bg-white/15 px-3 text-[13px] font-bold md:h-[34px] md:px-3.5 md:text-sm">
               <Icon name={style.icon} size={15} />
-              {style.label}, {lowerFirst(everyLabel(person.intervalDays))}
+              {style.label}, {lowerFirst(person.every)}
             </span>
-            {!isActive && (
+            {person.state === "paused" && (
               <span className="flex h-8 items-center rounded-full bg-white/15 px-3 text-[13px] font-bold md:h-[34px] md:text-sm">
                 Paused
               </span>
@@ -193,7 +193,7 @@ export default function ContactScreen({ person, isActive, notes, notesSummary, d
             phone: person.phone,
             category: person.category,
             intervalDays: person.intervalDays,
-            isActive,
+            isActive: person.state !== "paused",
           }}
           defaults={defaults}
           onClose={closeEdit}

@@ -8,13 +8,13 @@ import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { CallLink } from "@/components/today/bits";
 import TalkSheet from "@/components/today/TalkSheet";
-import { everyLabel, type TodayPerson } from "@/components/today/types";
+import type { ContactCard } from "@/lib/contact-card";
 import { Toast, useTalk } from "@/components/talk/useTalk";
 import { CATEGORY_VALUES, type Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
 
 /** A row of the Contacts list: a person plus where they stand. */
-export type ContactRow = TodayPerson & {
+export type ContactRow = ContactCard & {
   isActive: boolean;
   /** Due now (overdue or today), for active Contacts. */
   due: boolean;
@@ -366,7 +366,7 @@ export default function ContactsScreen({
                   <span>
                     <CategoryChip category={c.category} />
                   </span>
-                  <span className="text-sm text-muted">{everyLabel(c.intervalDays)}</span>
+                  <span className="text-sm text-muted">{c.every}</span>
                   <span className="truncate text-sm text-muted">{c.lastTalked}</span>
                   <span className={`text-sm font-bold ${c.isActive && c.due ? "text-brand" : "text-muted"}`}>
                     {nextLabel(c)}

@@ -11,15 +11,16 @@ import FocusMode from "./FocusMode";
 import ListMode, { Glow } from "./ListMode";
 import TalkSheet from "./TalkSheet";
 import { Toast, useTalk } from "@/components/talk/useTalk";
-import { categoryAndLastTalked, numberWord, type TodayPerson } from "./types";
+import { categoryAndLastTalked, numberWord } from "@/components/wording";
+import type { ContactCard } from "@/lib/contact-card";
 
 type Props = {
   firstName: string | null;
   dateLabel: string;
   dailyGoal: number;
   doneToday: number;
-  suggested: TodayPerson[];
-  others: TodayPerson[];
+  suggested: ContactCard[];
+  others: ContactCard[];
   hasContacts: boolean;
 };
 
@@ -138,7 +139,7 @@ function AllSkipped({ onRestart }: { onRestart: () => void }) {
 export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, hasContacts }: Props) {
   const [mode, setMode] = useMode();
   const { talk, undo, toast, busyId } = useTalk();
-  const [talkingTo, setTalkingTo] = useState<TodayPerson | null>(null);
+  const [talkingTo, setTalkingTo] = useState<ContactCard | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [keepGoing, setKeepGoing] = useState(false);
 

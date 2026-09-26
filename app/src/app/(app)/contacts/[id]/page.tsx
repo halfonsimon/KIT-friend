@@ -1,8 +1,8 @@
 // One Contact: what you know about them, your notes, and the Edit sheet.
 import { notFound } from "next/navigation";
 import ContactScreen, { type ContactNote } from "@/components/contacts/ContactScreen";
-import { toTodayPerson } from "@/components/today/types";
 import { requireUser } from "@/lib/auth-utils";
+import { contactCard } from "@/lib/contact-card";
 import { contactsOf } from "@/lib/contacts-of";
 import { getSettings } from "@/lib/settings";
 
@@ -23,7 +23,7 @@ export default async function ContactPage({ params, searchParams }: Props) {
   const [contact, settings] = await Promise.all([contactsOf(userId).view(id, now), getSettings(userId)]);
   if (!contact) notFound();
 
-  const person = toTodayPerson(contact, now);
+  const person = contactCard(contact, now);
 
   const notes: ContactNote[] = contact.interactions.map((i) => ({ id: i.id, date: dayMonth(i.notedAt), note: i.note }));
   const oldest = contact.interactions.at(-1)?.notedAt;
@@ -34,7 +34,6 @@ export default async function ContactPage({ params, searchParams }: Props) {
   return (
     <ContactScreen
       person={person}
-      isActive={contact.isActive}
       notes={notes}
       notesSummary={notesSummary}
       defaults={settings.defaultsByCategory}

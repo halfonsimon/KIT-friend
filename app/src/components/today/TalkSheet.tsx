@@ -5,10 +5,11 @@ import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { categoryStyle } from "@/components/ui/CategoryChip";
 import { appendPhrase, useDictation } from "@/components/useDictation";
-import { categoryAndLastTalked, type TodayPerson } from "./types";
+import { categoryAndLastTalked } from "@/components/wording";
+import type { ContactCard } from "@/lib/contact-card";
 
 type Props = {
-  person: TodayPerson;
+  person: ContactCard;
   saving: boolean;
   onClose: () => void;
   onSubmit: (note: string) => void;
