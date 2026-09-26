@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactCard } from "./contact-card";
+import { contactCard, contactList } from "./contact-card";
 import { computeStatus } from "./due";
 import type { RosterContact } from "./roster";
 
@@ -113,5 +113,31 @@ describe("contactCard next-call prompts", () => {
 
   it("is empty without Relationship memory", () => {
     expect(nextCall({})).toEqual([]);
+  });
+});
+
+describe("contactList", () => {
+  it("keeps active Contacts in roster due order and lists Paused ones after", () => {
+    // Roster order: due order, whatever Paused says.
+    const people = [
+      row({ id: "paused-overdue", isActive: false, lastContactedAt: new Date("2026-03-01T10:00:00Z") }),
+      row({ id: "overdue", lastContactedAt: new Date("2026-03-10T10:00:00Z") }),
+      row({ id: "paused-ok", isActive: false, lastContactedAt: new Date("2026-03-25T10:00:00Z") }),
+      row({ id: "today", lastContactedAt: new Date("2026-03-20T10:00:00Z") }),
+      row({ id: "ok", lastContactedAt: new Date("2026-03-25T10:00:00Z") }),
+    ];
+    expect(contactList(people, NOW).map((c) => c.id)).toEqual([
+      "overdue",
+      "today",
+      "ok",
+      "paused-overdue",
+      "paused-ok",
+    ]);
+  });
+
+  it("gives each Contact its card", () => {
+    const [card] = contactList([row({ isActive: false })], NOW);
+    expect(card.state).toBe("paused");
+    expect(card.nextDue).toBe("Paused");
   });
 });

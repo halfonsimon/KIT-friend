@@ -71,3 +71,12 @@ export function contactCard(c: RosterContact, now: Date): ContactCard {
     nextCall: (c.followUps.length > 0 ? c.followUps : c.keyTopics).slice(0, 3),
   };
 }
+
+/**
+ * The Contacts list: a roster's cards with active Contacts first, in the
+ * roster's due order, and the Paused ones after.
+ */
+export function contactList(rows: RosterContact[], now: Date): ContactCard[] {
+  const cards = rows.map((c) => contactCard(c, now));
+  return [...cards.filter((c) => c.state !== "paused"), ...cards.filter((c) => c.state === "paused")];
+}
