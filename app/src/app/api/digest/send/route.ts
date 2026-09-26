@@ -46,10 +46,13 @@ export async function POST(request: Request) {
       }
 
       // The account email stored on the user, the same one the preview and the scheduled run use.
-      const { email } = await getAccount(session.user.id);
+      const account = await getAccount(session.user.id);
+      if (!account) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
       const result = await sendTestDigest({
         userId: session.user.id,
-        accountEmail: email,
+        accountEmail: account.email,
         now: new Date(),
         mailer: smtpMailer(),
       });

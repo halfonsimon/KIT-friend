@@ -4,6 +4,7 @@
  */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Category, ContactContext } from "./contact";
+import { dayMonth } from "./contact-card";
 
 export type ProcessedNote = {
   keyTopics: string[];
@@ -72,10 +73,6 @@ Keep the tone professional but personable.`;
   }
 }
 
-/** "31 March 2026": the Interaction's UTC day, as the notes timeline counts it. */
-const utcDay = (d: Date) =>
-  d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-
 /**
  * The prompt that asks Gemini to merge a new note into the Relationship memory.
  * Pure, so it reads the same whatever the server's timezone.
@@ -89,7 +86,7 @@ export function buildMemoryPrompt(newNote: string, context: ContactContext): str
 
   const recentHistory = context.recentInteractions
     .slice(0, 5)
-    .map((i) => `- ${utcDay(i.date)}: ${i.note}`)
+    .map((i) => `- ${dayMonth(i.date)}: ${i.note}`)
     .join("\n");
 
   return `You are a personal relationship assistant helping someone maintain meaningful connections.

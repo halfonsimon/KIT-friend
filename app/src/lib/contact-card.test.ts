@@ -137,6 +137,10 @@ describe("dayMonth", () => {
     expect(dayMonth(new Date("2026-03-19T23:30:00Z"), NOW)).toBe("19 March");
     expect(dayMonth(new Date("2025-12-31T23:30:00Z"), NOW)).toBe("31 December 2025");
   });
+
+  it("always shows the year without a `now`", () => {
+    expect(dayMonth(new Date("2026-03-19T23:30:00Z"))).toBe("19 March 2026");
+  });
 });
 
 describe("contactList", () => {

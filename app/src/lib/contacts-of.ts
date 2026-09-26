@@ -80,8 +80,9 @@ export function contactsOf(userId: string) {
 
   // A contact's notes, newest first, trimmed; Touches without a note are left out.
   async function notesOf(contactId: string, take?: number): Promise<ContactInteraction[]> {
+    // Touches without a note don't count towards `take`.
     const stored = await prisma.interaction.findMany({
-      where: { contactId },
+      where: { contactId, note: { not: null } },
       orderBy: { notedAt: "desc" },
       take,
     });

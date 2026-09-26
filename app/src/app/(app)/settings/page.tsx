@@ -1,4 +1,5 @@
-// Settings: daily goal, the daily email (with a preview of today's), check-in defaults, account.
+// Settings: daily goal, the daily email (with a preview of today's), Touch interval defaults, account.
+import { redirect } from "next/navigation";
 import SettingsScreen, { type EmailPreview } from "@/components/settings/SettingsScreen";
 import { getAccount } from "@/lib/account";
 import { requireUser } from "@/lib/auth-utils";
@@ -19,6 +20,8 @@ function lastSentLabel(lastSent: DigestPreview["lastSent"], now: Date) {
 export default async function SettingsPage() {
   const userId = await requireUser();
   const [settings, account] = await Promise.all([getSettings(userId), getAccount(userId)]);
+  // Signed in as a user who no longer exists: send them back to sign in.
+  if (!account) redirect("/login");
   const now = new Date();
   const digest = await previewDigest({ userId, accountEmail: account.email, now });
 

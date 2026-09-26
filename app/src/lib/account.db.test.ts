@@ -19,4 +19,8 @@ describe("getAccount", () => {
 
     expect(await getAccount(alice.id)).toEqual({ name: null, email: "alice@example.com", provider: "google" });
   });
+
+  it("returns null when the user no longer exists", async () => {
+    expect(await getAccount("deleted-user")).toBeNull();
+  });
 });

@@ -298,6 +298,23 @@ describe("contactsOf(...) notes", () => {
     expect(recent?.map((n) => n.note)).toEqual(["Yesterday", "Two days ago", "Three days ago"]);
   });
 
+  it("counts only Touches with a note towards the cap", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    await prisma.interaction.createMany({
+      data: [
+        { contactId: friend.id, note: "Four days ago", notedAt: daysAgo(4) },
+        { contactId: friend.id, note: "Three days ago", notedAt: daysAgo(3) },
+        { contactId: friend.id, note: null, notedAt: daysAgo(2) },
+        { contactId: friend.id, note: null, notedAt: daysAgo(1) },
+      ],
+    });
+
+    const recent = await contactsOf(alice.id).recentNotes(friend.id, 2);
+
+    expect(recent?.map((n) => n.note)).toEqual(["Three days ago", "Four days ago"]);
+  });
+
   it("can't list notes on, save or undo a Touch on another user's contact", async () => {
     const alice = await createUser("alice@example.com");
     const bob = await createUser("bob@example.com");

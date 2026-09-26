@@ -11,11 +11,13 @@ export type Account = {
   provider: "google" | "email";
 };
 
-export async function getAccount(userId: string): Promise<Account> {
-  const user = await prisma.user.findUniqueOrThrow({
+/** `null` when the user no longer exists (e.g. deleted while still signed in). */
+export async function getAccount(userId: string): Promise<Account | null> {
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { name: true, email: true, accounts: { select: { provider: true } } },
   });
+  if (!user) return null;
   const provider = user.accounts.some((a) => a.provider === "google") ? "google" : "email";
   return { name: user.name, email: user.email, provider };
 }
