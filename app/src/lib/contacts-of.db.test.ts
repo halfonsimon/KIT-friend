@@ -233,3 +233,62 @@ describe("contactsOf(...).view", () => {
     expect(view?.interactions.map((i) => i.note)).toEqual(["Off to Peru"]);
   });
 });
+
+describe("contactsOf(...) notes", () => {
+  it("lists a saved note among the contact's recent notes", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const alices = contactsOf(alice.id);
+
+    const saved = await alices.saveNote(friend.id, "Coffee in the park", NOW);
+
+    expect(saved).toMatchObject({ note: "Coffee in the park", notedAt: NOW });
+    expect(await alices.recentNotes(friend.id, 10)).toEqual([saved]);
+  });
+
+  it("drops only the note saved at the given time", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const other = await createContact(alice.id, "Other");
+    const alices = contactsOf(alice.id);
+    await alices.saveNote(friend.id, "Earlier", daysAgo(3));
+    await alices.saveNote(friend.id, "Oops", NOW);
+    await alices.saveNote(other.id, "Same time, other contact", NOW);
+
+    expect(await alices.dropNote(friend.id, NOW)).toBe(true);
+
+    expect((await alices.recentNotes(friend.id, 10))?.map((n) => n.note)).toEqual(["Earlier"]);
+    expect((await alices.recentNotes(other.id, 10))?.map((n) => n.note)).toEqual(["Same time, other contact"]);
+  });
+
+  it("caps recent notes at the requested count, newest first", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    await prisma.interaction.createMany({
+      data: [
+        { contactId: friend.id, note: "Four days ago", notedAt: daysAgo(4) },
+        { contactId: friend.id, note: "Yesterday", notedAt: daysAgo(1) },
+        { contactId: friend.id, note: "Three days ago", notedAt: daysAgo(3) },
+        { contactId: friend.id, note: "Two days ago", notedAt: daysAgo(2) },
+      ],
+    });
+
+    const recent = await contactsOf(alice.id).recentNotes(friend.id, 3);
+
+    expect(recent?.map((n) => n.note)).toEqual(["Yesterday", "Two days ago", "Three days ago"]);
+  });
+
+  it("can't list, save or drop notes on another user's contact", async () => {
+    const alice = await createUser("alice@example.com");
+    const bob = await createUser("bob@example.com");
+    const bobsFriend = await createContact(bob.id, "Bob's friend");
+    await contactsOf(bob.id).saveNote(bobsFriend.id, "Private", NOW);
+    const alices = contactsOf(alice.id);
+
+    expect(await alices.recentNotes(bobsFriend.id, 10)).toBeNull();
+    expect(await alices.saveNote(bobsFriend.id, "Planted", NOW)).toBeNull();
+    expect(await alices.dropNote(bobsFriend.id, NOW)).toBeNull();
+
+    expect((await contactsOf(bob.id).recentNotes(bobsFriend.id, 10))?.map((n) => n.note)).toEqual(["Private"]);
+  });
+});

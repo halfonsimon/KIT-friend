@@ -1,8 +1,9 @@
 /**
- * Per-user Contact module: the only way to read or change a single contact.
- * Every method is scoped to one user. A contact that doesn't exist and a
- * contact owned by someone else both come back as `null`, so callers can't
- * tell them apart and can't reach another user's row.
+ * Per-user Contact module: the only way to read or change a single contact
+ * and its Interactions (the notes saved with Touches). Every method is scoped
+ * to one user. A contact that doesn't exist and a contact owned by someone
+ * else both come back as `null`, so callers can't tell them apart and can't
+ * reach another user's row.
  */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
@@ -40,6 +41,18 @@ export function contactsOf(userId: string) {
     return defaultIntervalFor(category, await getSettings(userId));
   }
 
+  // A contact's notes, newest first, trimmed, blank ones left out.
+  async function notesOf(contactId: string, take?: number): Promise<ContactInteraction[]> {
+    const stored = await prisma.interaction.findMany({
+      where: { contactId },
+      orderBy: { notedAt: "desc" },
+      take,
+    });
+    return stored.flatMap(({ id, note, notedAt }) =>
+      note?.trim() ? [{ id, note: note.trim(), notedAt }] : []
+    );
+  }
+
   return {
     get: owned,
 
@@ -47,14 +60,27 @@ export function contactsOf(userId: string) {
     async view(id: string, now: Date): Promise<ContactView | null> {
       const contact = await owned(id);
       if (!contact) return null;
-      const stored = await prisma.interaction.findMany({
-        where: { contactId: contact.id },
-        orderBy: { notedAt: "desc" },
-      });
-      const interactions = stored.flatMap(({ id, note, notedAt }) =>
-        note?.trim() ? [{ id, note: note.trim(), notedAt }] : []
-      );
-      return { ...toRosterContact(contact, now), interactions };
+      return { ...toRosterContact(contact, now), interactions: await notesOf(contact.id) };
+    },
+
+    /** The contact's `count` most recent notes, newest first. */
+    async recentNotes(id: string, count: number) {
+      if (!(await owned(id))) return null;
+      return notesOf(id, count);
+    },
+
+    /** Save a note on the contact, dated `at`. */
+    async saveNote(id: string, note: string, at: Date): Promise<ContactInteraction | null> {
+      if (!(await owned(id))) return null;
+      const saved = await prisma.interaction.create({ data: { contactId: id, note, notedAt: at } });
+      return { id: saved.id, note, notedAt: saved.notedAt };
+    },
+
+    /** Drop the note saved on the contact at `at` (the Undo of a Touch). */
+    async dropNote(id: string, at: Date) {
+      if (!(await owned(id))) return null;
+      await prisma.interaction.deleteMany({ where: { contactId: id, notedAt: at } });
+      return true;
     },
 
     async create(contact: NewContact) {

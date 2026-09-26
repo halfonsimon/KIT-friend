@@ -7,7 +7,6 @@
 import type { RelationshipMemory } from "./ai";
 import { buildContactContext, stringifyStoredStringArray } from "./contact";
 import { contactsOf } from "./contacts-of";
-import { prisma } from "./db";
 import { computeStatus, type Computed } from "./due";
 
 export type TouchResult = Computed & {
@@ -46,14 +45,8 @@ export async function recordTouch(input: {
 
   const note = input.note.trim();
   if (note) {
-    const earlier = await prisma.interaction.findMany({
-      where: { contactId: touched.id },
-      orderBy: { notedAt: "desc" },
-      take: RECENT_INTERACTIONS,
-    });
-    await prisma.interaction.create({
-      data: { contactId: touched.id, note, notedAt: input.now },
-    });
+    const earlier = (await contacts.recentNotes(touched.id, RECENT_INTERACTIONS)) ?? [];
+    await contacts.saveNote(touched.id, note, input.now);
 
     const memory = input.memory;
     if (memory) {
@@ -90,9 +83,7 @@ export async function undoTouch(input: {
   if (contact.lastContactedAt?.getTime() !== input.touchedAt.getTime()) return false;
 
   await contacts.update(contact.id, { lastContactedAt: input.restoreTo });
-  await prisma.interaction.deleteMany({
-    where: { contactId: contact.id, notedAt: input.touchedAt },
-  });
+  await contacts.dropNote(contact.id, input.touchedAt);
   return true;
 }
 
