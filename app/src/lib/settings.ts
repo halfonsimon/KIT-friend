@@ -6,15 +6,12 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import type { Category } from "@/lib/contact";
+import { fieldErrorsFrom, type FieldErrors } from "@/lib/field-errors";
+import { DEFAULT_INTERVAL_BY_CATEGORY, IntervalDays } from "@/lib/interval";
 
 const FALLBACK = {
   upcomingCount: 2,
-  defaultsByCategory: {
-    FAMILY: 7,
-    FRIEND: 30,
-    WORK: 14,
-    OTHER: 21,
-  } as Record<Category, number>,
+  defaultsByCategory: DEFAULT_INTERVAL_BY_CATEGORY,
   sendEmailDigest: true,
   digestTime: "06:00",
   digestEmail: null as string | null,
@@ -71,12 +68,6 @@ export async function getSettings(userId: string): Promise<AppSettings> {
   return settingsFromRow(row);
 }
 
-const IntervalDays = z
-  .number({ error: "Enter a number of days" })
-  .int("Use whole days")
-  .min(1, "Must be between 1 and 365 days")
-  .max(365, "Must be between 1 and 365 days");
-
 /** The limits every saved setting must respect. */
 export const SettingsSchema = z.object({
   upcomingCount: z
@@ -100,12 +91,17 @@ export const SettingsSchema = z.object({
     .max(20, "Must be between 1 and 20"),
 });
 
+export type SaveSettingsResult = { ok: true } | { ok: false; fieldErrors: FieldErrors };
+
 /**
- * Validate and save a user's settings. Throws a ZodError for values outside
- * the limits. Never touches when the last digest was sent.
+ * Validate and save a user's settings. The digest email is trimmed, and blank
+ * means none. Values outside the limits come back as field errors and nothing
+ * is saved. Never touches when the last digest was sent.
  */
-export async function saveSettings(userId: string, settings: AppSettings): Promise<void> {
-  const s = SettingsSchema.parse(settings);
+export async function saveSettings(userId: string, settings: AppSettings): Promise<SaveSettingsResult> {
+  const parsed = SettingsSchema.safeParse({ ...settings, digestEmail: settings.digestEmail?.trim() || null });
+  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  const s = parsed.data;
   const columns = {
     upcomingCount: s.upcomingCount,
     defaultFamilyDays: s.defaultsByCategory.FAMILY,
@@ -122,6 +118,7 @@ export async function saveSettings(userId: string, settings: AppSettings): Promi
     create: { userId, ...columns },
     update: columns,
   });
+  return { ok: true };
 }
 
 /** Record that a user's scheduled digest was sent at `at`. */

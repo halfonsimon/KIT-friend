@@ -9,6 +9,7 @@ import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { saveSettingsAction } from "@/app/(app)/settings/actions";
 import { CATEGORY_VALUES } from "@/lib/contact";
+import { INTERVAL_MAX_DAYS, INTERVAL_MIN_DAYS } from "@/lib/interval";
 import type { AppSettings } from "@/lib/settings";
 
 /** What "Today's email" shows: the same digest the daily email is built from. */
@@ -367,8 +368,8 @@ export default function SettingsScreen({ initial, account, preview }: Props) {
                 <Stepper
                   label={`${cat.charAt(0)}${cat.slice(1).toLowerCase()} default`}
                   value={values.defaultsByCategory[cat]}
-                  min={1}
-                  max={365}
+                  min={INTERVAL_MIN_DAYS}
+                  max={INTERVAL_MAX_DAYS}
                   unit="days"
                   onChange={(v) => change({ defaultsByCategory: { ...latest.current.defaultsByCategory, [cat]: v } }, "soon")}
                 />

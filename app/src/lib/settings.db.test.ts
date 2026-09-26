@@ -34,35 +34,61 @@ describe("settings", () => {
   });
 
   it.each([
-    ["an upcoming count above 50", { upcomingCount: 51 }],
-    ["a negative upcoming count", { upcomingCount: -1 }],
-    ["a zero-day interval", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, WORK: 0 } }],
-    ["an interval over a year", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, FAMILY: 366 } }],
-    ["a digest time that isn't HH:MM", { digestTime: "25:00" }],
-    ["an invalid digest email", { digestEmail: "not-an-email" }],
-    ["a daily goal of zero", { dailyGoal: 0 }],
-    ["a daily goal above 20", { dailyGoal: 21 }],
-  ])("rejects %s and saves nothing", async (_, change) => {
+    ["blank", ""],
+    ["whitespace-only", "   "],
+  ])("saves a %s digest email as none", async (_, digestEmail) => {
     const alice = await createUser("alice@example.com");
+    await saveSettings(alice.id, CUSTOM);
 
-    await expect(saveSettings(alice.id, { ...CUSTOM, ...change })).rejects.toThrow();
+    expect(await saveSettings(alice.id, { ...CUSTOM, digestEmail })).toEqual({ ok: true });
 
-    expect((await getSettings(alice.id)).upcomingCount).toBe(2);
+    expect((await getSettings(alice.id)).digestEmail).toBeNull();
   });
 
-  it("names every invalid field with a readable message", async () => {
+  it("saves a padded digest email trimmed", async () => {
     const alice = await createUser("alice@example.com");
 
-    const error = await saveSettings(alice.id, {
-      ...CUSTOM,
-      defaultsByCategory: { ...CUSTOM.defaultsByCategory, WORK: 0 },
-      digestEmail: "not-an-email",
-    }).catch((e) => e);
+    await saveSettings(alice.id, { ...CUSTOM, digestEmail: "  alice+digest@example.com  " });
 
-    expect(error.issues.map((i: { path: string[]; message: string }) => [i.path.join("."), i.message])).toEqual([
-      ["defaultsByCategory.WORK", "Must be between 1 and 365 days"],
-      ["digestEmail", "Enter a valid email address, or leave it blank"],
-    ]);
+    expect((await getSettings(alice.id)).digestEmail).toBe("alice+digest@example.com");
+  });
+
+  it.each([
+    ["an upcoming count above 50", { upcomingCount: 51 }, "upcomingCount", "Must be between 0 and 50"],
+    ["a negative upcoming count", { upcomingCount: -1 }, "upcomingCount", "Must be between 0 and 50"],
+    ["a zero-day interval", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, WORK: 0 } }, "defaultsByCategory.WORK", "Must be between 1 and 365 days"],
+    ["an interval over a year", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, FAMILY: 366 } }, "defaultsByCategory.FAMILY", "Must be between 1 and 365 days"],
+    ["a fractional interval", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, FRIEND: 2.5 } }, "defaultsByCategory.FRIEND", "Use whole days"],
+    ["a missing interval", { defaultsByCategory: { ...CUSTOM.defaultsByCategory, OTHER: NaN } }, "defaultsByCategory.OTHER", "Enter a number of days"],
+    ["a digest time that isn't HH:MM", { digestTime: "25:00" }, "digestTime", "Invalid time format (HH:MM)"],
+    ["an invalid digest email", { digestEmail: " not-an-email " }, "digestEmail", "Enter a valid email address, or leave it blank"],
+    ["a daily goal of zero", { dailyGoal: 0 }, "dailyGoal", "Must be between 1 and 20"],
+    ["a daily goal above 20", { dailyGoal: 21 }, "dailyGoal", "Must be between 1 and 20"],
+  ])("rejects %s and saves nothing", async (_, change, field, message) => {
+    const alice = await createUser("alice@example.com");
+
+    const result = await saveSettings(alice.id, { ...CUSTOM, ...change });
+
+    expect(result).toEqual({ ok: false, fieldErrors: { [field]: message } });
+    expect(await getSettings(alice.id)).toEqual(await getSettings("no-such-user"));
+  });
+
+  it("names every invalid field with one readable message each", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const result = await saveSettings(alice.id, {
+      ...CUSTOM,
+      defaultsByCategory: { ...CUSTOM.defaultsByCategory, WORK: 0.5 },
+      digestEmail: "not-an-email",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      fieldErrors: {
+        "defaultsByCategory.WORK": "Use whole days",
+        digestEmail: "Enter a valid email address, or leave it blank",
+      },
+    });
   });
 
   it("gives a user with no saved settings the defaults", async () => {
