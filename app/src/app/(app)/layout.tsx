@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import AppNav from "@/components/AppNav";
+import Landing from "@/components/landing/Landing";
 import Backdrop from "@/components/ui/Backdrop";
 
 export default async function AppGroupLayout({ children }: { children: ReactNode }) {
@@ -9,8 +10,10 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     ? { name: session.user.name ?? null, email: session.user.email ?? null, image: session.user.image ?? null }
     : null;
 
-  // Signed out, only the landing page is reachable here, and it draws its own frame.
-  if (!user) return <>{children}</>;
+  // Signed out, only "/" is reachable here (the route gate sends everything else
+  // to /login), and it's the landing page. Drawn here rather than by the page so
+  // Today's loading screen, which wraps the page, never flashes before it.
+  if (!user) return <Landing />;
 
   return (
     <div className="relative min-h-screen md:pt-4">

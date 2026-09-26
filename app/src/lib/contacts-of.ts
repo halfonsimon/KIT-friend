@@ -79,10 +79,11 @@ export function contactsOf(userId: string) {
   }
 
   // A contact's notes, newest first, trimmed; Touches without a note are left out.
+  // Scoped by owner too, so it can run alongside the ownership check.
   async function notesOf(contactId: string, take?: number): Promise<ContactInteraction[]> {
     // Touches without a note don't count towards `take`.
     const stored = await prisma.interaction.findMany({
-      where: { contactId, note: { not: null } },
+      where: { contactId, contact: { userId }, note: { not: null } },
       orderBy: { notedAt: "desc" },
       take,
     });
@@ -109,9 +110,10 @@ export function contactsOf(userId: string) {
 
     /** One contact as the app sees it at `now`; blank notes are left out. */
     async view(id: string, now: Date): Promise<ContactView | null> {
-      const contact = await owned(id);
+      // One round trip: the notes query is owner-scoped, so it needn't wait for `owned`.
+      const [contact, interactions] = await Promise.all([owned(id), notesOf(id)]);
       if (!contact) return null;
-      return { ...toRosterContact(contact, now), interactions: await notesOf(contact.id) };
+      return { ...toRosterContact(contact, now), interactions };
     },
 
     /** The contact's `count` most recent notes, newest first. */

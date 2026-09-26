@@ -51,7 +51,8 @@ test("a new user adds Contacts, records a Touch and receives the Digest", async 
   // Send the Digest from Settings (the old /digest address leads there).
   await page.goto("/digest");
   await expect(page).toHaveURL(/\/settings/);
-  await expect(page.getByText("Ada Lovelace")).toBeVisible();
+  // Scoped to the email preview: while the loading screen hands over, the streamed page can briefly exist twice.
+  await expect(page.getByRole("complementary").getByText("Ada Lovelace")).toBeVisible();
   await page.getByRole("button", { name: "Send me one now" }).click();
   await expect(page.getByText(`Sent to ${user.email}`)).toBeVisible();
 

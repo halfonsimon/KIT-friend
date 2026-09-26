@@ -1,16 +1,15 @@
 import { auth } from "@/auth";
 import { contactCard } from "@/lib/contact-card";
 import { today } from "@/lib/today";
-import Landing from "@/components/landing/Landing";
 import TodayScreen from "@/components/today/TodayScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  // Signed out, "/" is the landing page; signed in, it's Today.
+  // Signed out, the layout shows the landing page instead of this.
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) return <Landing />;
+  if (!userId) return null;
 
   const now = new Date();
   const view = await today(userId, now);

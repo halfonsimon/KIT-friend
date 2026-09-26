@@ -8,6 +8,14 @@ import AuthLayout, { AuthError, AuthField, AuthHeading, GoogleButton, OrDivider 
 import { buttonClass } from "@/components/ui/button";
 import { safeCallbackUrl } from "@/lib/safe-redirect";
 
+function errorMessage(error: string | null) {
+  if (!error) return "";
+  if (error === "OAuthAccountNotLinked") {
+    return "This email already has an account with a password. Sign in with your email and password.";
+  }
+  return "Sign-in didn’t work. Please try again.";
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,7 +50,7 @@ function LoginForm() {
   return (
     <div className="flex flex-col gap-4 md:gap-[22px]">
       <AuthHeading title="Welcome back" lead="Sign in to see who to catch up with today." />
-      <AuthError message={formError || (error ? "Sign-in didn’t work. Please try again." : "")} />
+      <AuthError message={formError || errorMessage(error)} />
       <GoogleButton label="Continue with Google" onClick={() => signIn("google", { callbackUrl })} />
       <OrDivider />
       <form onSubmit={handleCredentials} className="flex flex-col gap-4 md:gap-[22px]">

@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import ContactScreen, { type ContactNote } from "@/components/contacts/ContactScreen";
 import { requireUser } from "@/lib/auth-utils";
 import { contactCard, dayMonth } from "@/lib/contact-card";
-import { contactsOf } from "@/lib/contacts-of";
-import { getSettings } from "@/lib/settings";
+import { contactPage } from "@/lib/contact-page";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +18,9 @@ export default async function ContactPage({ params, searchParams }: Props) {
   const userId = await requireUser();
   const [{ id }, { edit }] = await Promise.all([params, searchParams]);
   const now = new Date();
-  const [contact, settings] = await Promise.all([contactsOf(userId).view(id, now), getSettings(userId)]);
-  if (!contact) notFound();
+  const page = await contactPage(userId, id, now);
+  if (!page) notFound();
+  const { contact, settings } = page;
 
   const person = contactCard(contact, now);
 
