@@ -1,8 +1,9 @@
 /**
  * Touch: record that the user just got in touch with a contact, optionally
- * with a note. A note is also merged into the contact's Relationship memory
- * (AI summary, key topics, follow-ups). Takes `now`, the memory adapter and a
- * `defer` scheduler as inputs so it can be tested without a clock or Gemini.
+ * with a note. Every Touch is saved as an Interaction. A note is also merged
+ * into the contact's Relationship memory (AI summary, key topics, follow-ups).
+ * Takes `now`, the memory adapter and a `defer` scheduler as inputs so it can
+ * be tested without a clock or Gemini.
  */
 import type { RelationshipMemory } from "./ai";
 import { buildContactContext, stringifyStoredStringArray } from "./contact";
@@ -14,6 +15,8 @@ export type TouchResult = Computed & {
   lastContactedAt: Date;
   /** The last touch before this one, so the touch can be undone. */
   previousContactedAt: Date | null;
+  /** Opaque value identifying this Touch, for undoing it. */
+  undo: string;
 };
 
 /** Runs work after the response: Next's `after()` in production. */
@@ -22,9 +25,10 @@ export type Defer = (task: () => Promise<void>) => void | Promise<void>;
 const RECENT_INTERACTIONS = 10;
 
 /**
- * Record a touch. Returns `null` when the contact is missing or not the user's.
- * With a note and a memory adapter, updates the Relationship memory through
- * `defer` (awaited inline by default). If the adapter fails, the stored
+ * Record a touch. The note is trimmed here; a blank one means no note.
+ * Returns `null` when the contact is missing or not the user's. With a note
+ * and a memory adapter, updates the Relationship memory through `defer`
+ * (awaited inline by default). If the adapter fails, the stored
  * memory is left unchanged.
  */
 export async function recordTouch(input: {
@@ -36,30 +40,24 @@ export async function recordTouch(input: {
   defer?: Defer;
 }): Promise<TouchResult | null> {
   const contacts = contactsOf(input.userId);
-  const before = await contacts.get(input.contactId);
-  if (!before) return null;
-  const touched = await contacts.update(input.contactId, {
-    lastContactedAt: input.now,
-  });
-  if (!touched) return null;
+  const note = input.note.trim() || null;
+  const earlier = note ? await contacts.recentNotes(input.contactId, RECENT_INTERACTIONS) : [];
+  const saved = await contacts.saveTouch(input.contactId, { note, at: input.now });
+  if (!saved) return null;
+  const { contact: touched, touchId } = saved;
 
-  const note = input.note.trim();
-  if (note) {
-    const earlier = (await contacts.recentNotes(touched.id, RECENT_INTERACTIONS)) ?? [];
-    await contacts.saveNote(touched.id, note, input.now);
-
-    const memory = input.memory;
-    if (memory) {
-      const context = buildContactContext({ ...touched, interactions: earlier });
-      const defer = input.defer ?? ((task) => task());
-      await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
-    }
+  const memory = input.memory;
+  if (note && memory) {
+    const context = buildContactContext({ ...touched, interactions: earlier ?? [] });
+    const defer = input.defer ?? ((task) => task());
+    await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
   }
 
   return {
     id: touched.id,
     lastContactedAt: input.now,
-    previousContactedAt: before.lastContactedAt,
+    previousContactedAt: saved.previousContactedAt,
+    undo: touchId,
     ...computeStatus(touched, input.now),
   };
 }

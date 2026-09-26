@@ -73,11 +73,13 @@ model Contact {
 }
 
 model Interaction {
-  id        String   @id @default(cuid())
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId String
-  notedAt   DateTime @default(now())
-  note      String?
+  id                  String    @id @default(cuid())
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId           String
+  notedAt             DateTime  @default(now())
+  note                String?
+  // The Contact's last Touch before this one, so the Touch can be undone.
+  previousContactedAt DateTime?
 }
 
 model Setting {

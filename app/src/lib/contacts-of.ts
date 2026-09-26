@@ -1,6 +1,6 @@
 /**
  * Per-user Contact module: the only way to read or change a single contact
- * and its Interactions (the notes saved with Touches). Every method is scoped
+ * and its Interactions (its recorded Touches, with their notes). Every method is scoped
  * to one user. A contact that doesn't exist and a contact owned by someone
  * else both come back as `null`, so callers can't tell them apart and can't
  * reach another user's row.
@@ -26,7 +26,7 @@ export type ContactChanges = Omit<
   "user" | "interactions" | "intervalDays" | "category"
 > & { category?: Category } & Interval;
 
-/** A saved note from a Touch, as shown in a contact's notes timeline. */
+/** A Touch's note, as shown in a contact's notes timeline. */
 export type ContactInteraction = { id: string; note: string; notedAt: Date };
 
 /** One contact as the app sees it: its roster row plus its notes, newest first. */
@@ -34,14 +34,15 @@ export type ContactView = RosterContact & { interactions: ContactInteraction[] }
 
 export function contactsOf(userId: string) {
   // Ownership check: load by id AND userId; "not found" means "not owned".
-  const owned = (id: string) => prisma.contact.findFirst({ where: { id, userId } });
+  const owned = (id: string, db: Prisma.TransactionClient = prisma) =>
+    db.contact.findFirst({ where: { id, userId } });
 
   async function resolveInterval(intervalDays: number | null | undefined, category: Category) {
     if (intervalDays !== null) return intervalDays;
     return defaultIntervalFor(category, await getSettings(userId));
   }
 
-  // A contact's notes, newest first, trimmed, blank ones left out.
+  // A contact's notes, newest first, trimmed; Touches without a note are left out.
   async function notesOf(contactId: string, take?: number): Promise<ContactInteraction[]> {
     const stored = await prisma.interaction.findMany({
       where: { contactId },
@@ -54,7 +55,7 @@ export function contactsOf(userId: string) {
   }
 
   return {
-    get: owned,
+    get: (id: string) => owned(id),
 
     /** One contact as the app sees it at `now`; blank notes are left out. */
     async view(id: string, now: Date): Promise<ContactView | null> {
@@ -69,14 +70,30 @@ export function contactsOf(userId: string) {
       return notesOf(id, count);
     },
 
-    /** Save a note on the contact, dated `at`. */
-    async saveNote(id: string, note: string, at: Date): Promise<ContactInteraction | null> {
-      if (!(await owned(id))) return null;
-      const saved = await prisma.interaction.create({ data: { contactId: id, note, notedAt: at } });
-      return { id: saved.id, note, notedAt: saved.notedAt };
+    /**
+     * Save a Touch at `at`: the contact's last Touch becomes `at`, and an
+     * Interaction records the Touch, its note (if any) and the last Touch
+     * before it (`previousContactedAt`). Both writes happen together.
+     * `touchId` is the Interaction's id.
+     */
+    async saveTouch(id: string, touch: { note: string | null; at: Date }) {
+      return prisma.$transaction(async (tx) => {
+        const before = await owned(id, tx);
+        if (!before) return null;
+        const contact = await tx.contact.update({ where: { id }, data: { lastContactedAt: touch.at } });
+        const saved = await tx.interaction.create({
+          data: {
+            contactId: id,
+            note: touch.note,
+            notedAt: touch.at,
+            previousContactedAt: before.lastContactedAt,
+          },
+        });
+        return { contact, touchId: saved.id, previousContactedAt: saved.previousContactedAt };
+      });
     },
 
-    /** Drop the note saved on the contact at `at` (the Undo of a Touch). */
+    /** Drop the Touch saved on the contact at `at`, with its note (the Undo of a Touch). */
     async dropNote(id: string, at: Date) {
       if (!(await owned(id))) return null;
       await prisma.interaction.deleteMany({ where: { contactId: id, notedAt: at } });

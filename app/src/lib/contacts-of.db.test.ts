@@ -235,25 +235,43 @@ describe("contactsOf(...).view", () => {
 });
 
 describe("contactsOf(...) notes", () => {
-  it("lists a saved note among the contact's recent notes", async () => {
+  it("saves a Touch with its note among the contact's recent notes", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
     const alices = contactsOf(alice.id);
 
-    const saved = await alices.saveNote(friend.id, "Coffee in the park", NOW);
+    const saved = await alices.saveTouch(friend.id, { note: "Coffee in the park", at: NOW });
 
-    expect(saved).toMatchObject({ note: "Coffee in the park", notedAt: NOW });
-    expect(await alices.recentNotes(friend.id, 10)).toEqual([saved]);
+    expect(saved?.contact.lastContactedAt).toEqual(NOW);
+    expect(await alices.recentNotes(friend.id, 10)).toEqual([
+      { id: saved?.touchId, note: "Coffee in the park", notedAt: NOW },
+    ]);
   });
 
-  it("drops only the note saved at the given time", async () => {
+  it("saves a Touch without a note as an Interaction that remembers the last Touch before it", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await prisma.contact.create({
+      data: { userId: alice.id, name: "Friend", intervalDays: 7, lastContactedAt: daysAgo(10) },
+    });
+    const alices = contactsOf(alice.id);
+
+    const saved = await alices.saveTouch(friend.id, { note: null, at: NOW });
+
+    expect(await prisma.interaction.findMany({ where: { contactId: friend.id } })).toMatchObject([
+      { id: saved?.touchId, note: null, notedAt: NOW, previousContactedAt: daysAgo(10) },
+    ]);
+    expect(await alices.recentNotes(friend.id, 10)).toEqual([]);
+    expect((await alices.view(friend.id, NOW))?.interactions).toEqual([]);
+  });
+
+  it("drops only the Touch saved at the given time", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
     const other = await createContact(alice.id, "Other");
     const alices = contactsOf(alice.id);
-    await alices.saveNote(friend.id, "Earlier", daysAgo(3));
-    await alices.saveNote(friend.id, "Oops", NOW);
-    await alices.saveNote(other.id, "Same time, other contact", NOW);
+    await alices.saveTouch(friend.id, { note: "Earlier", at: daysAgo(3) });
+    await alices.saveTouch(friend.id, { note: "Oops", at: NOW });
+    await alices.saveTouch(other.id, { note: "Same time, other contact", at: NOW });
 
     expect(await alices.dropNote(friend.id, NOW)).toBe(true);
 
@@ -278,17 +296,18 @@ describe("contactsOf(...) notes", () => {
     expect(recent?.map((n) => n.note)).toEqual(["Yesterday", "Two days ago", "Three days ago"]);
   });
 
-  it("can't list, save or drop notes on another user's contact", async () => {
+  it("can't list notes on, save or drop a Touch on another user's contact", async () => {
     const alice = await createUser("alice@example.com");
     const bob = await createUser("bob@example.com");
     const bobsFriend = await createContact(bob.id, "Bob's friend");
-    await contactsOf(bob.id).saveNote(bobsFriend.id, "Private", NOW);
+    await contactsOf(bob.id).saveTouch(bobsFriend.id, { note: "Private", at: daysAgo(1) });
     const alices = contactsOf(alice.id);
 
     expect(await alices.recentNotes(bobsFriend.id, 10)).toBeNull();
-    expect(await alices.saveNote(bobsFriend.id, "Planted", NOW)).toBeNull();
-    expect(await alices.dropNote(bobsFriend.id, NOW)).toBeNull();
+    expect(await alices.saveTouch(bobsFriend.id, { note: "Planted", at: NOW })).toBeNull();
+    expect(await alices.dropNote(bobsFriend.id, daysAgo(1))).toBeNull();
 
     expect((await contactsOf(bob.id).recentNotes(bobsFriend.id, 10))?.map((n) => n.note)).toEqual(["Private"]);
+    expect((await contactsOf(bob.id).get(bobsFriend.id))?.lastContactedAt).toEqual(daysAgo(1));
   });
 });

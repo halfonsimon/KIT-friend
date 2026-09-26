@@ -17,10 +17,11 @@ async function userWithOverdueContacts(page: Page, label: string) {
   return userId;
 }
 
+// The notes saved for a Contact; a Touch without a note is left out.
 const notesFor = async (userId: string, name: string) =>
   (
     await db.contact.findFirstOrThrow({ where: { userId, name }, include: { interactions: true } })
-  ).interactions.map((i) => i.note);
+  ).interactions.flatMap((i) => (i.note === null ? [] : [i.note]));
 
 test("the List suggests three people and records a Touch with a note", async ({ page }) => {
   const userId = await userWithOverdueContacts(page, "today-list");

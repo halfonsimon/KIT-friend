@@ -26,10 +26,12 @@ describe("recordTouch", () => {
 
     const result = await recordTouch({ userId: alice.id, contactId: friend.id, note: "", now: NOW });
 
+    const [touch] = await prisma.interaction.findMany({ where: { contactId: friend.id } });
     expect(result).toEqual({
       id: friend.id,
       lastContactedAt: NOW,
       previousContactedAt: daysAgo(10),
+      undo: touch.id,
       status: "ok",
       daysUntilDue: 7,
       nextDueAt: new Date("2026-03-17T00:00:00Z"),
@@ -48,13 +50,26 @@ describe("recordTouch", () => {
     expect(interactions).toMatchObject([{ note: "Talked about her new job", notedAt: NOW }]);
   });
 
+  it("saves a touch without a note as an Interaction with no note and the last touch before it", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+
+    await recordTouch({ userId: alice.id, contactId: friend.id, note: "", now: NOW });
+
+    const interactions = await prisma.interaction.findMany({ where: { contactId: friend.id } });
+    expect(interactions).toMatchObject([{ note: null, notedAt: NOW, previousContactedAt: daysAgo(10) }]);
+    expect((await contactsOf(alice.id).view(friend.id, NOW))?.interactions).toEqual([]);
+  });
+
   it("treats a blank note as a touch without a note", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
 
-    await recordTouch({ userId: alice.id, contactId: friend.id, note: "   ", now: NOW });
+    await recordTouch({ userId: alice.id, contactId: friend.id, note: " \n  ", now: NOW });
 
-    expect(await prisma.interaction.count()).toBe(0);
+    const interactions = await prisma.interaction.findMany({ where: { contactId: friend.id } });
+    expect(interactions).toMatchObject([{ note: null, notedAt: NOW }]);
+    expect((await contactsOf(alice.id).view(friend.id, NOW))?.interactions).toEqual([]);
   });
 
   it("can't touch another user's contact", async () => {
@@ -129,13 +144,14 @@ describe("recordTouch", () => {
     expect(memory.calls).toEqual([]);
   });
 
-  it("gives the AI the contact and its earlier notes, newest first", async () => {
+  it("gives the AI the contact and its earlier notes, newest first, leaving out touches without a note", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await prisma.contact.create({
       data: { userId: alice.id, name: "Sam", category: "WORK", intervalDays: 7 },
     });
     await prisma.interaction.create({ data: { contactId: friend.id, note: "Met at conference", notedAt: daysAgo(20) } });
     await prisma.interaction.create({ data: { contactId: friend.id, note: "Lunch", notedAt: daysAgo(5) } });
+    await recordTouch({ userId: alice.id, contactId: friend.id, note: "  ", now: daysAgo(2) });
     const memory = fakeRelationshipMemory();
 
     await recordTouch({ userId: alice.id, contactId: friend.id, note: "Got promoted", now: NOW, memory });
@@ -198,7 +214,7 @@ describe("recordTouch", () => {
 describe("undoTouch", () => {
   const LATER = new Date(NOW.getTime() + 60_000);
 
-  it("puts the last touch back and drops the note saved with it", async () => {
+  it("puts the last touch back and drops the touch and the note saved with it", async () => {
     const alice = await createUser("alice@example.com");
     const friend = await createContact(alice.id, "Friend");
     await prisma.interaction.create({ data: { contactId: friend.id, note: "Earlier note", notedAt: daysAgo(10) } });
@@ -228,6 +244,7 @@ describe("undoTouch", () => {
 
     const [listed] = await roster(alice.id, NOW);
     expect(listed.lastContactedAt).toBeNull();
+    expect(await prisma.interaction.count()).toBe(0);
   });
 
   it("does nothing once the contact was touched again", async () => {

@@ -42,7 +42,7 @@ export async function POST(
     let note = "";
     try {
       const body = await req.json();
-      note = typeof body?.note === "string" ? body.note.trim() : "";
+      note = typeof body?.note === "string" ? body.note : "";
     } catch {
       // No body or invalid JSON is fine - note is optional
     }
@@ -65,6 +65,7 @@ export async function POST(
         id: result.id,
         lastContactedAt: result.lastContactedAt,
         previousContactedAt: result.previousContactedAt,
+        undo: result.undo,
         status: result.status,
         daysUntilDue: result.daysUntilDue,
         nextDueAt: result.nextDueAt.toISOString(),
