@@ -7,9 +7,8 @@ import CategoryChip, { categoryStyle } from "@/components/ui/CategoryChip";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { CallLink } from "@/components/today/bits";
-import TalkSheet from "@/components/today/TalkSheet";
 import type { CardState, ContactCard } from "@/lib/contact-card";
-import { Toast, useTalk } from "@/components/talk/useTalk";
+import { useWeTalked } from "@/components/talk/WeTalked";
 import { CATEGORY_VALUES, type Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
 
@@ -159,8 +158,7 @@ export default function ContactsScreen({
   adding?: boolean;
 }) {
   const router = useRouter();
-  const { talk, undo, toast, busyId } = useTalk();
-  const [talkingTo, setTalkingTo] = useState<ContactCard | null>(null);
+  const { open, talk, busyId, view } = useWeTalked();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
   const [status, setStatus] = useState<StatusFilter>("any");
@@ -211,8 +209,6 @@ export default function ContactsScreen({
     }
   };
 
-  const openTalk = useCallback((c: ContactCard) => setTalkingTo(c), []);
-  const closeSheet = useCallback(() => setTalkingTo(null), []);
   const closeAdd = useCallback(() => router.replace("/contacts", { scroll: false }), [router]);
 
   const search = (
@@ -314,7 +310,7 @@ export default function ContactsScreen({
                   key={c.id}
                   person={c}
                   busy={busyId === c.id}
-                  onTalk={() => openTalk(c)}
+                  onTalk={() => open(c)}
                   onSwipeTalk={() => talk(c, "")}
                 />
               ))}
@@ -363,7 +359,7 @@ export default function ContactsScreen({
                   </span>
                   <button
                     type="button"
-                    onClick={() => openTalk(c)}
+                    onClick={() => open(c)}
                     disabled={busyId === c.id}
                     aria-label={`We talked with ${c.name}`}
                     className={buttonClass("soft", "sm")}
@@ -378,18 +374,8 @@ export default function ContactsScreen({
         </div>
       </main>
 
-      {talkingTo && (
-        <TalkSheet
-          person={talkingTo}
-          saving={busyId === talkingTo.id}
-          onClose={closeSheet}
-          onSubmit={async (note) => {
-            if (await talk(talkingTo, note)) setTalkingTo(null);
-          }}
-        />
-      )}
       {adding && <ContactSheet defaults={defaults} onClose={closeAdd} />}
-      <Toast toast={toast} onUndo={undo} />
+      {view}
     </div>
   );
 }

@@ -61,7 +61,7 @@ function LastTalkedChip({ person, className = "" }: { person: ContactCard; class
 function FocusPerson({ person, behind, onTalk, onLater, busy }: { person: ContactCard; behind: number } & Omit<Props, "queue">) {
   const [note, setNote] = useState("");
   const talk = async () => {
-    if (await onTalk(person, note.trim())) setNote("");
+    if (await onTalk(person, note)) setNote("");
   };
   const actions = (large: boolean) => (
     <>

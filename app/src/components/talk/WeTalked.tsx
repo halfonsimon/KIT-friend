@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
+import type { ContactCard } from "@/lib/contact-card";
+import TalkSheet from "./TalkSheet";
 
 /** What the toast shows: a message, and for a fresh Touch its Undo value. */
 type ToastState = {
@@ -11,7 +13,7 @@ type ToastState = {
   undo?: { contactId: string; value: string };
 };
 
-export function Toast({ toast, onUndo }: { toast: ToastState | null; onUndo: () => void }) {
+function Toast({ toast, onUndo }: { toast: ToastState | null; onUndo: () => void }) {
   // The live region is the message alone, always mounted so screen readers
   // announce each new one; Undo sits beside it.
   return (
@@ -44,12 +46,15 @@ export function Toast({ toast, onUndo }: { toast: ToastState | null; onUndo: () 
 }
 
 /**
- * Record Touches ("We talked") from any screen: saves through the touch API,
- * refreshes the page's data, and keeps the toast with Undo.
+ * "We talked" on any screen: the note sheet, saving the Touch, the busy state,
+ * the toast with Undo and the refresh after each. A screen calls `open` to ask
+ * for a note first, or `talk` to save straight away (with the note it already
+ * has), and renders `view` once.
  */
-export function useTalk() {
+export function useWeTalked() {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [talkingTo, setTalkingTo] = useState<ContactCard | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -72,8 +77,9 @@ export function useTalk() {
         });
         const body = await res.json().catch(() => null);
         if (!res.ok || !body?.ok) throw new Error(`HTTP ${res.status}`);
+        // The Touch module trims too; this is only for the wording.
         setToast({
-          message: note ? `Note saved for ${person.name}` : `${person.name} marked as talked`,
+          message: note.trim() ? `Note saved for ${person.name}` : `${person.name} marked as talked`,
           undo: { contactId: person.id, value: body.data.undo },
         });
         startTransition(() => router.refresh());
@@ -102,5 +108,23 @@ export function useTalk() {
     startTransition(() => router.refresh());
   }, [toast, router]);
 
-  return { talk, undo, toast, busyId };
+  const close = useCallback(() => setTalkingTo(null), []);
+
+  const view = (
+    <>
+      {talkingTo && (
+        <TalkSheet
+          person={talkingTo}
+          saving={busyId === talkingTo.id}
+          onClose={close}
+          onSubmit={async (note) => {
+            if (await talk(talkingTo, note)) setTalkingTo(null);
+          }}
+        />
+      )}
+      <Toast toast={toast} onUndo={undo} />
+    </>
+  );
+
+  return { open: setTalkingTo, talk, busyId, view };
 }

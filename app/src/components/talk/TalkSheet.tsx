@@ -31,7 +31,7 @@ export default function TalkSheet({ person, saving, onClose, onSubmit }: Props) 
 
   const submit = () => {
     stop();
-    onSubmit(note.trim());
+    onSubmit(note);
   };
 
   return (

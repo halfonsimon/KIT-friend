@@ -8,10 +8,9 @@ import { buttonClass } from "@/components/ui/button";
 import { categoryStyle } from "@/components/ui/CategoryChip";
 import { Glow } from "@/components/today/ListMode";
 import { NextCallList } from "@/components/today/bits";
-import TalkSheet from "@/components/today/TalkSheet";
 import { lowerFirst } from "@/components/wording";
 import type { ContactCard } from "@/lib/contact-card";
-import { Toast, useTalk } from "@/components/talk/useTalk";
+import { useWeTalked } from "@/components/talk/WeTalked";
 import type { Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
 
@@ -88,12 +87,10 @@ function Notes({ notes, summary }: { notes: ContactNote[]; summary: string | nul
 /** One Contact: who they are, what you know, your notes, and Edit. */
 export default function ContactScreen({ person, notes, notesSummary, defaults, editing }: Props) {
   const router = useRouter();
-  const { talk, undo, toast, busyId } = useTalk();
-  const [talking, setTalking] = useState(false);
+  const { open, busyId, view } = useWeTalked();
   const [editOpen, setEditOpen] = useState(editing);
   const style = categoryStyle[person.category];
 
-  const closeTalk = useCallback(() => setTalking(false), []);
   const closeEdit = useCallback(() => {
     setEditOpen(false);
     // Drop ?edit=1 so a reload doesn't reopen the sheet.
@@ -159,7 +156,7 @@ export default function ContactScreen({ person, notes, notesSummary, defaults, e
               )}
               <button
                 type="button"
-                onClick={() => setTalking(true)}
+                onClick={() => open(person)}
                 disabled={busyId === person.id}
                 className={buttonClass("white", "md", "h-[52px] flex-1 text-base shadow-none md:flex-none md:px-7 md:text-[15px]")}
               >
@@ -175,16 +172,6 @@ export default function ContactScreen({ person, notes, notesSummary, defaults, e
         <Notes notes={notes} summary={notesSummary} />
       </div>
 
-      {talking && (
-        <TalkSheet
-          person={person}
-          saving={busyId === person.id}
-          onClose={closeTalk}
-          onSubmit={async (note) => {
-            if (await talk(person, note)) setTalking(false);
-          }}
-        />
-      )}
       {editOpen && (
         <ContactSheet
           contact={{
@@ -199,7 +186,7 @@ export default function ContactScreen({ person, notes, notesSummary, defaults, e
           onClose={closeEdit}
         />
       )}
-      <Toast toast={toast} onUndo={undo} />
+      {view}
     </div>
   );
 }
