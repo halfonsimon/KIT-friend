@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { contactsOf } from "./contacts-of";
+import { roster } from "./roster";
+
+const NOW = new Date("2026-03-10T12:00:00Z");
+const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
 
 async function createUser(email: string) {
   return prisma.user.create({ data: { email } });
@@ -112,5 +116,120 @@ describe("contactsOf", () => {
     expect(removed?.id).toBe(friend.id);
     expect(await contactsOf(alice.id).get(friend.id)).toBeNull();
     expect(await prisma.interaction.count()).toBe(0);
+  });
+});
+
+describe("contactsOf(...).view", () => {
+  it("shows a contact with the same row and due status as the roster at the same now", async () => {
+    const alice = await createUser("alice@example.com");
+    const overdue = await prisma.contact.create({
+      data: { userId: alice.id, name: "Overdue", intervalDays: 7, lastContactedAt: daysAgo(9) },
+    });
+    const today = await prisma.contact.create({
+      data: { userId: alice.id, name: "Today", intervalDays: 7, lastContactedAt: daysAgo(7) },
+    });
+    const ok = await prisma.contact.create({
+      data: { userId: alice.id, name: "Ok", intervalDays: 7, lastContactedAt: daysAgo(2) },
+    });
+    const alices = contactsOf(alice.id);
+
+    const views = [await alices.view(overdue.id, NOW), await alices.view(today.id, NOW), await alices.view(ok.id, NOW)];
+
+    expect(views.map((v) => [v?.status, v?.daysUntilDue])).toEqual([
+      ["overdue", -2],
+      ["today", 0],
+      ["ok", 5],
+    ]);
+    const rows = await roster(alice.id, NOW);
+    for (const view of views) {
+      const { interactions, ...row } = view!;
+      expect(interactions).toEqual([]);
+      expect(row).toEqual(rows.find((r) => r.id === row.id));
+    }
+  });
+
+  it("shows the contact's notes newest first, trimmed, with blank notes left out", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const other = await createContact(alice.id, "Other");
+    await prisma.interaction.createMany({
+      data: [
+        { contactId: friend.id, note: "Oldest", notedAt: daysAgo(20) },
+        { contactId: friend.id, note: "  Newest  ", notedAt: daysAgo(1) },
+        { contactId: friend.id, note: "   ", notedAt: daysAgo(2) },
+        { contactId: friend.id, note: null, notedAt: daysAgo(3) },
+        { contactId: friend.id, note: "Middle", notedAt: daysAgo(10) },
+        { contactId: other.id, note: "Someone else's", notedAt: daysAgo(5) },
+      ],
+    });
+
+    const view = await contactsOf(alice.id).view(friend.id, NOW);
+
+    expect(view?.interactions.map((i) => [i.note, i.notedAt])).toEqual([
+      ["Newest", daysAgo(1)],
+      ["Middle", daysAgo(10)],
+      ["Oldest", daysAgo(20)],
+    ]);
+  });
+
+  it("shows parsed relationship memory, with malformed stored lists read as empty", async () => {
+    const alice = await createUser("alice@example.com");
+    const remembered = await prisma.contact.create({
+      data: {
+        userId: alice.id,
+        name: "Remembered",
+        intervalDays: 7,
+        aiSummary: "Loves hiking.",
+        keyTopics: JSON.stringify(["Hiking", "New job"]),
+        followUps: JSON.stringify(["How was the trail?"]),
+      },
+    });
+    const garbled = await prisma.contact.create({
+      data: { userId: alice.id, name: "Garbled", intervalDays: 7, keyTopics: "not json", followUps: "{\"a\":1}" },
+    });
+    const alices = contactsOf(alice.id);
+
+    expect(await alices.view(remembered.id, NOW)).toMatchObject({
+      aiSummary: "Loves hiking.",
+      hasAiSummary: true,
+      keyTopics: ["Hiking", "New job"],
+      followUps: ["How was the trail?"],
+    });
+    expect(await alices.view(garbled.id, NOW)).toMatchObject({
+      aiSummary: null,
+      hasAiSummary: false,
+      keyTopics: [],
+      followUps: [],
+    });
+  });
+
+  it("returns null for another user's contact and for a missing one", async () => {
+    const alice = await createUser("alice@example.com");
+    const bob = await createUser("bob@example.com");
+    const bobsFriend = await createContact(bob.id, "Bob's friend");
+    await prisma.interaction.create({ data: { contactId: bobsFriend.id, note: "Private" } });
+
+    expect(await contactsOf(alice.id).view(bobsFriend.id, NOW)).toBeNull();
+    expect(await contactsOf(alice.id).view("missing", NOW)).toBeNull();
+  });
+
+  it("shows a paused contact with its notes and relationship memory", async () => {
+    const alice = await createUser("alice@example.com");
+    const paused = await prisma.contact.create({
+      data: {
+        userId: alice.id,
+        name: "Paused",
+        intervalDays: 7,
+        isActive: false,
+        lastContactedAt: daysAgo(30),
+        aiSummary: "On sabbatical.",
+      },
+    });
+    await prisma.interaction.create({ data: { contactId: paused.id, note: "Off to Peru", notedAt: daysAgo(30) } });
+
+    const view = await contactsOf(alice.id).view(paused.id, NOW);
+
+    expect(view).toMatchObject({ name: "Paused", isActive: false, status: "overdue", aiSummary: "On sabbatical." });
+    expect(view?.interactions.map((i) => i.note)).toEqual(["Off to Peru"]);
   });
 });

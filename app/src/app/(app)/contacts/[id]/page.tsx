@@ -3,10 +3,7 @@ import { notFound } from "next/navigation";
 import ContactScreen, { type ContactNote } from "@/components/contacts/ContactScreen";
 import { toTodayPerson } from "@/components/today/types";
 import { requireUser } from "@/lib/auth-utils";
-import { asCategory, readStoredAiMemory } from "@/lib/contact";
 import { contactsOf } from "@/lib/contacts-of";
-import { prisma } from "@/lib/db";
-import { computeStatus } from "@/lib/due";
 import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -22,33 +19,14 @@ const month = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", timeZo
 export default async function ContactPage({ params, searchParams }: Props) {
   const userId = await requireUser();
   const [{ id }, { edit }] = await Promise.all([params, searchParams]);
-  const contact = await contactsOf(userId).get(id);
+  const now = new Date();
+  const [contact, settings] = await Promise.all([contactsOf(userId).view(id, now), getSettings(userId)]);
   if (!contact) notFound();
 
-  const now = new Date();
-  const [settings, interactions] = await Promise.all([
-    getSettings(userId),
-    prisma.interaction.findMany({
-      where: { contactId: contact.id },
-      orderBy: { notedAt: "desc" },
-    }),
-  ]);
+  const person = toTodayPerson(contact, now);
 
-  const person = toTodayPerson(
-    {
-      ...contact,
-      category: asCategory(contact.category),
-      hasAiSummary: !!contact.aiSummary,
-      ...readStoredAiMemory(contact),
-      ...computeStatus(contact, now),
-    },
-    now
-  );
-
-  const notes: ContactNote[] = interactions
-    .filter((i) => i.note?.trim())
-    .map((i) => ({ id: i.id, date: dayMonth(i.notedAt), note: i.note!.trim() }));
-  const oldest = notes.length ? interactions.filter((i) => i.note?.trim()).at(-1)!.notedAt : null;
+  const notes: ContactNote[] = contact.interactions.map((i) => ({ id: i.id, date: dayMonth(i.notedAt), note: i.note }));
+  const oldest = contact.interactions.at(-1)?.notedAt;
   const notesSummary = oldest
     ? `${notes.length} ${notes.length === 1 ? "note" : "notes"} since ${month(oldest)}`
     : null;

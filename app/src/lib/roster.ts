@@ -4,6 +4,7 @@
  * This is the one place that lists contacts by due status. The pure due
  * rules live in ./due.
  */
+import type { Contact } from "@prisma/client";
 import { prisma } from "./db";
 import { asCategory, readStoredAiMemory, type Category } from "./contact";
 import { computeStatus, type Computed, type Status } from "./due";
@@ -26,6 +27,28 @@ export type RosterContact = Computed & {
   followUps: string[];
 };
 
+/**
+ * One stored contact as the app sees it at `now`. The only mapping from a
+ * stored contact to a row, shared by the roster and the single-contact view.
+ */
+export function toRosterContact(c: Contact, now: Date): RosterContact {
+  return {
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    category: asCategory(c.category),
+    intervalDays: c.intervalDays,
+    createdAt: c.createdAt,
+    lastContactedAt: c.lastContactedAt,
+    lastReminderSentAt: c.lastReminderSentAt,
+    isActive: c.isActive,
+    notes: c.notes,
+    hasAiSummary: !!c.aiSummary,
+    ...readStoredAiMemory(c),
+    ...computeStatus(c, now),
+  };
+}
+
 const STATUS_ORDER: Record<Status, number> = { overdue: 0, today: 1, ok: 2 };
 
 function byDueOrder(a: RosterContact, b: RosterContact) {
@@ -45,21 +68,5 @@ export async function roster(
     orderBy: { createdAt: "asc" },
   });
 
-  return contacts
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      category: asCategory(c.category),
-      intervalDays: c.intervalDays,
-      createdAt: c.createdAt,
-      lastContactedAt: c.lastContactedAt,
-      lastReminderSentAt: c.lastReminderSentAt,
-      isActive: c.isActive,
-      notes: c.notes,
-      hasAiSummary: !!c.aiSummary,
-      ...readStoredAiMemory(c),
-      ...computeStatus(c, now),
-    }))
-    .sort(byDueOrder);
+  return contacts.map((c) => toRosterContact(c, now)).sort(byDueOrder);
 }
