@@ -133,6 +133,15 @@ export async function recordDigestSent(userId: string, at: Date): Promise<void> 
   });
 }
 
+/** When a user's last scheduled digest was sent, or null if none has been. */
+export async function lastDigestSentAt(userId: string): Promise<Date | null> {
+  const row = await prisma.setting.findUnique({
+    where: { userId },
+    select: { lastEmailDigestAt: true },
+  });
+  return row?.lastEmailDigestAt ?? null;
+}
+
 export type UserSettings = {
   userId: string;
   accountEmail: string;

@@ -1,14 +1,17 @@
 /**
  * Digest delivery: decides who gets a digest and when, builds and renders it,
- * sends it through a Mailer, and records the send. Takes `now` and the Mailer
- * as inputs so the rules can be tested without a clock or SMTP.
+ * sends it through a Mailer, records the send, and previews today's digest
+ * for Settings. Takes `now` and the Mailer as inputs so the rules can be
+ * tested without a clock or SMTP.
  */
-import { buildDigest, type DigestData } from "./digest";
+import { buildDigest, type DigestData, type DigestItem } from "./digest";
+import { isSameUtcDay, statusLabel } from "./due";
 import { renderDigestEmail } from "./email";
 import type { Mailer } from "./mailer";
 import {
   everyUsersSettings,
   getSettings,
+  lastDigestSentAt,
   recordDigestSent,
   type AppSettings,
 } from "./settings";
@@ -50,6 +53,51 @@ export async function sendTestDigest(input: {
   return { recipient, messageId, stats };
 }
 
+/** How many due Contacts the preview lists before "N more are waiting". */
+const PREVIEW_DUE = 5;
+
+export type PreviewItem = { id: string; name: string; label: string };
+
+export type DigestPreview = {
+  recipient: string;
+  subject: string;
+  /** Overdue then due-today Contacts, in due order, capped at five. */
+  due: PreviewItem[];
+  /** Due Contacts beyond the ones listed. */
+  moreDue: number;
+  /** The next Contacts coming due, as many as the user's upcoming count. */
+  upcoming: PreviewItem[];
+  /** The last scheduled digest (test sends don't count), and whether it went out on `now`'s UTC day. */
+  lastSent: { at: Date; today: boolean } | null;
+};
+
+const toPreviewItem = (i: DigestItem): PreviewItem => ({ id: i.id, name: i.name, label: statusLabel(i) });
+
+/**
+ * What today's digest would be for one user at `now` (the "Today's email"
+ * preview in Settings). Sends nothing and ignores the digest-enabled flag.
+ */
+export async function previewDigest(input: {
+  userId: string;
+  accountEmail: string;
+  now: Date;
+}): Promise<DigestPreview> {
+  const [settings, digest, lastSentAt] = await Promise.all([
+    getSettings(input.userId),
+    buildDigest(input.userId, input.now),
+    lastDigestSentAt(input.userId),
+  ]);
+  const due = [...digest.overdue, ...digest.today];
+  return {
+    recipient: recipientFor(settings, input.accountEmail),
+    subject: renderDigestEmail(digest).subject,
+    due: due.slice(0, PREVIEW_DUE).map(toPreviewItem),
+    moreDue: Math.max(0, due.length - PREVIEW_DUE),
+    upcoming: digest.upcoming.map(toPreviewItem),
+    lastSent: lastSentAt && { at: lastSentAt, today: isSameUtcDay(lastSentAt, input.now) },
+  };
+}
+
 export type DigestOutcome = {
   userId: string;
   email: string;
@@ -58,8 +106,6 @@ export type DigestOutcome = {
 };
 
 const WINDOW_MINUTES = 30;
-
-const utcDay = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Is `now` within ±30 minutes of the user's HH:MM digest time (UTC)? */
 function isWithinWindow(digestTime: string, now: Date): boolean {
@@ -81,7 +127,7 @@ export async function runScheduledDigests(input: {
   const users = await everyUsersSettings();
 
   const outcomes: DigestOutcome[] = [];
-  for (const { userId, accountEmail, settings, lastDigestSentAt } of users) {
+  for (const { userId, accountEmail, settings, lastDigestSentAt: lastSentAt } of users) {
     if (!settings.sendEmailDigest) continue;
     const email = recipientFor(settings, accountEmail);
     if (!email) {
@@ -89,7 +135,7 @@ export async function runScheduledDigests(input: {
       continue;
     }
 
-    if (lastDigestSentAt && utcDay(lastDigestSentAt) === utcDay(input.now)) {
+    if (lastSentAt && isSameUtcDay(lastSentAt, input.now)) {
       outcomes.push({ userId, email, status: "already_sent_today" });
       continue;
     }
