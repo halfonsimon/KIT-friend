@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
+import { contactCard } from "@/lib/contact-card";
 import { today } from "@/lib/today";
 import TodayScreen from "@/components/today/TodayScreen";
-import { toTodayPerson } from "@/components/today/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +28,9 @@ export default async function TodayPage() {
       dateLabel={dateLabel}
       dailyGoal={view.dailyGoal}
       doneToday={view.doneToday}
-      suggested={view.suggested.map((c) => toTodayPerson(c, now))}
-      others={view.others.map((c) => toTodayPerson(c, now))}
+      suggested={view.suggested.map((c) => contactCard(c, now))}
+      others={view.others.map((c) => contactCard(c, now))}
+      goalMet={view.goalMet}
       hasContacts={view.hasContacts}
     />
   );

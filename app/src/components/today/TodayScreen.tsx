@@ -9,17 +9,18 @@ import { categoryStyle } from "@/components/ui/CategoryChip";
 import { ModeToggle, ProgressChip, type Mode } from "./bits";
 import FocusMode from "./FocusMode";
 import ListMode, { Glow } from "./ListMode";
-import TalkSheet from "./TalkSheet";
-import { Toast, useTalk } from "@/components/talk/useTalk";
-import { categoryAndLastTalked, numberWord, type TodayPerson } from "./types";
+import { useWeTalked } from "@/components/talk/WeTalked";
+import { categoryAndLastTalked, numberWord } from "@/components/wording";
+import type { ContactCard } from "@/lib/contact-card";
 
 type Props = {
   firstName: string | null;
   dateLabel: string;
   dailyGoal: number;
   doneToday: number;
-  suggested: TodayPerson[];
-  others: TodayPerson[];
+  suggested: ContactCard[];
+  others: ContactCard[];
+  goalMet: boolean;
   hasContacts: boolean;
 };
 
@@ -135,19 +136,15 @@ function AllSkipped({ onRestart }: { onRestart: () => void }) {
 
 /* ---------- The screen ---------- */
 
-export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, hasContacts }: Props) {
+export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, goalMet, hasContacts }: Props) {
   const [mode, setMode] = useMode();
-  const { talk, undo, toast, busyId } = useTalk();
-  const [talkingTo, setTalkingTo] = useState<TodayPerson | null>(null);
+  const { open, talk, busyId, view } = useWeTalked();
   const [skipped, setSkipped] = useState<string[]>([]);
   const [keepGoing, setKeepGoing] = useState(false);
 
   const dueCount = suggested.length + others.length;
-  const goalMet = suggested.length === 0 && doneToday >= dailyGoal && doneToday > 0;
   const showDone = goalMet && !keepGoing;
   const queue = [...suggested, ...others].filter((p) => !skipped.includes(p.id));
-
-  const closeSheet = useCallback(() => setTalkingTo(null), []);
 
   const greeting = firstName ? `Hi ${firstName}.` : "Hi there.";
   const subline = !hasContacts
@@ -183,7 +180,7 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
     content = (
       <div className="flex flex-col gap-9">
         {goalMet && <DoneCard goal={dailyGoal} waiting={0} />}
-        <ListMode suggested={suggested} others={others} onTalk={setTalkingTo} busyId={busyId} />
+        <ListMode suggested={suggested} others={others} onTalk={open} busyId={busyId} />
       </div>
     );
   }
@@ -263,17 +260,7 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
 
       <div className="mt-7 md:mt-10 xl:mt-0">{content}</div>
 
-      {talkingTo && (
-        <TalkSheet
-          person={talkingTo}
-          saving={busyId === talkingTo.id}
-          onClose={closeSheet}
-          onSubmit={async (note) => {
-            if (await talk(talkingTo, note)) setTalkingTo(null);
-          }}
-        />
-      )}
-      <Toast toast={toast} onUndo={undo} />
+      {view}
     </div>
   );
 }

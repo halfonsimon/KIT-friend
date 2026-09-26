@@ -81,3 +81,26 @@ test("Delete removes the contact after confirming", async ({ page }) => {
   await expect(page).toHaveURL(/\/contacts$/);
   expect(await db.contact.findUnique({ where: { id: noa.id } })).toBeNull();
 });
+
+test("We talked saves a note, and Undo takes the Touch back", async ({ page }) => {
+  const { noa } = await userWithNoa(page, "contact-undo");
+  await page.goto(`/contacts/${noa.id}`);
+
+  await page.getByRole("button", { name: "We talked" }).click();
+  const sheet = page.getByRole("dialog", { name: "You talked with Noa" });
+  await sheet.getByRole("textbox", { name: "Note" }).fill("Wrong person");
+  await sheet.getByRole("button", { name: "Save note" }).click();
+
+  await expect(page.getByRole("status")).toHaveText("Note saved for Noa");
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText("Wrong person")).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo" }).click();
+
+  await expect(page.getByText("Wrong person")).toBeHidden();
+  const notes = await db.interaction.findMany({ where: { contactId: noa.id } });
+  expect(notes.map((n) => n.note).sort()).toEqual(["Helped her pick paint colours.", "She got the keys."]);
+  const saved = await db.contact.findUniqueOrThrow({ where: { id: noa.id } });
+  // Back to 10 days ago (to the second the test created it), not today.
+  expect(saved.lastContactedAt!.getTime()).toBeLessThan(daysAgo(9).getTime());
+});

@@ -1,20 +1,19 @@
 // src/app/contacts/actions.ts
-// Server Actions for create/update contact. They validate input with Zod,
-// write through the per-user Contact module, then refresh/redirect the list page.
+// Server Actions for create/update/delete contact. They pass the submitted form
+// to the per-user Contact module, which owns the input rules, then refresh/redirect.
 
 "use server";
 
-import { ContactFormSchema, type ContactFormInput } from "@/lib/validation";
 import { redirect } from "next/navigation";
-import { ZodError } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-utils";
 import { contactsOf } from "@/lib/contacts-of";
+import type { FieldErrors } from "@/lib/field-errors";
 
 export type ActionState = {
   ok: boolean;
   message?: string;
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: FieldErrors;
 };
 
 // Detect Next.js redirect errors thrown by redirect()/notFound()
@@ -31,46 +30,8 @@ function isNextRedirect(err: unknown): boolean {
   }
 }
 
-// Helper: extract and validate form fields using Zod
-function readForm(fd: FormData): ContactFormInput {
-  // Extract raw values from FormData without using `any`.
-  const name = String(fd.get("name") ?? "");
-  const phone = String(fd.get("phone") ?? "");
-  const category = String(fd.get("category") ?? "");
-
-  // intervalDays comes from an <input type="number"> as a string.
-  // Pass the string to Zod so z.coerce.number() can convert it and report nice errors.
-  const intervalEntry = fd.get("intervalDays");
-  const intervalDays = typeof intervalEntry === "string" ? intervalEntry : "";
-
-  // Active checkbox: if present it's "on", if absent it means false (unchecked)
-  const activeEntry = fd.get("isActive");
-  const isActive = activeEntry === "on";
-
-  const data = { name, phone, category, intervalDays, isActive };
-  return ContactFormSchema.parse(data);
-}
-
-// Map a validated form to contact fields; a blank interval means "category default"
-function toContactFields(input: ContactFormInput) {
-  return {
-    name: input.name,
-    phone: input.phone ?? null,
-    category: input.category,
-    intervalDays: input.intervalDays ?? null,
-    isActive: input.isActive,
-  };
-}
-
-// Turn a thrown error into form state: field errors for invalid input, else a generic message
+// Turn an unexpected error into a generic form message
 function toErrorState(err: unknown, action: string): ActionState {
-  if (err instanceof ZodError) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of err.issues) {
-      fieldErrors[issue.path.map(String).join(".") || "form"] = issue.message;
-    }
-    return { ok: false, fieldErrors };
-  }
   console.error(`${action} error:`, err);
   return { ok: false, message: "Server error. Please try again." };
 }
@@ -81,9 +42,10 @@ export async function createContact(
 ): Promise<ActionState> {
   try {
     const userId = await requireUser();
-    const input = readForm(formData);
 
-    await contactsOf(userId).create(toContactFields(input));
+    const result = await contactsOf(userId).createFromForm(formData);
+    if (!result.ok) return { ok: false, fieldErrors: result.fieldErrors };
+
     // Ensure /contacts shows fresh data, then navigate
     revalidatePath("/contacts");
     redirect("/contacts");
@@ -102,10 +64,9 @@ export async function updateContact(
     const id = String(formData.get("id") ?? "");
     if (!id) return { ok: false, message: "Missing id" };
 
-    const input = readForm(formData);
-
-    const updated = await contactsOf(userId).update(id, toContactFields(input));
-    if (!updated) return { ok: false, message: "Contact not found" };
+    const result = await contactsOf(userId).updateFromForm(id, formData);
+    if (!result) return { ok: false, message: "Contact not found" };
+    if (!result.ok) return { ok: false, fieldErrors: result.fieldErrors };
 
     revalidatePath("/contacts");
     revalidatePath(`/contacts/${id}`);

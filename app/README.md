@@ -84,9 +84,7 @@ FROM_EMAIL="KIT Friend <your-email@gmail.com>"
 
 ## API Routes
 
-- `GET /api/contacts` - List contacts with status
 - `POST /api/contacts/:id/touch` - Mark contact as reached, optionally with note
-- `GET /api/digest/preview` - Preview digest data
 - `POST /api/digest/send` - Send digest email
 
 ## Scripts

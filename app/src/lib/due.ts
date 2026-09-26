@@ -112,12 +112,3 @@ export function computeStatus(
 
   return { nextDueAt, daysUntilDue, status };
 }
-
-/* ========== Status label ========== */
-
-// The words shown for a status everywhere: contact badges, the digest page and the digest email
-export function statusLabel(c: Pick<Computed, "status" | "daysUntilDue">): string {
-  if (c.status === "overdue") return `${Math.abs(c.daysUntilDue)}d overdue`;
-  if (c.status === "today") return "Due today";
-  return `${c.daysUntilDue}d left`;
-}

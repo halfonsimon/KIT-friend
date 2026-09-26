@@ -5,12 +5,13 @@ import CategoryChip, { categoryStyle } from "@/components/ui/CategoryChip";
 import Icon from "@/components/ui/Icon";
 import { buttonClass, type ButtonVariant } from "@/components/ui/button";
 import { CallLink } from "./bits";
-import { categoryAndLastTalked, type TodayPerson } from "./types";
+import { categoryAndLastTalked } from "@/components/wording";
+import type { ContactCard } from "@/lib/contact-card";
 
 type Props = {
-  suggested: TodayPerson[];
-  others: TodayPerson[];
-  onTalk: (p: TodayPerson) => void;
+  suggested: ContactCard[];
+  others: ContactCard[];
+  onTalk: (p: ContactCard) => void;
   busyId: string | null;
 };
 
@@ -32,12 +33,12 @@ export function Glow({ className }: { className: string }) {
   );
 }
 
-function startTitle(people: TodayPerson[]) {
+function startTitle(people: ContactCard[]) {
   if (people.length === 1) return `Start with ${people[0].name}`;
   return `Start with these ${people.length}`;
 }
 
-function StartCard({ person, index, onTalk, busy }: { person: TodayPerson; index: number; onTalk: () => void; busy: boolean }) {
+function StartCard({ person, index, onTalk, busy }: { person: ContactCard; index: number; onTalk: () => void; busy: boolean }) {
   const look = LOOKS[index % LOOKS.length];
   const { label, icon } = categoryStyle[person.category];
   return (
@@ -63,7 +64,7 @@ function StartCard({ person, index, onTalk, busy }: { person: TodayPerson; index
 }
 
 /** Phone: the first suggestion as a compact ultramarine card, the rest as rows. */
-function PhoneStart({ people, onTalk, busyId }: { people: TodayPerson[]; onTalk: (p: TodayPerson) => void; busyId: string | null }) {
+function PhoneStart({ people, onTalk, busyId }: { people: ContactCard[]; onTalk: (p: ContactCard) => void; busyId: string | null }) {
   const [first, ...rest] = people;
   return (
     <ul className="flex flex-col gap-2 sm:hidden">
@@ -102,7 +103,7 @@ function PhoneStart({ people, onTalk, busyId }: { people: TodayPerson[]; onTalk:
   );
 }
 
-function OthersList({ people, onTalk, busyId }: { people: TodayPerson[]; onTalk: (p: TodayPerson) => void; busyId: string | null }) {
+function OthersList({ people, onTalk, busyId }: { people: ContactCard[]; onTalk: (p: ContactCard) => void; busyId: string | null }) {
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? people : people.slice(0, INITIAL_OTHERS);
   const hidden = people.length - shown.length;

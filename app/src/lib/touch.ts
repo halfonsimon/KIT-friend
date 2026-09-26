@@ -1,20 +1,20 @@
 /**
  * Touch: record that the user just got in touch with a contact, optionally
- * with a note. A note is also merged into the contact's Relationship memory
- * (AI summary, key topics, follow-ups). Takes `now`, the memory adapter and a
- * `defer` scheduler as inputs so it can be tested without a clock or Gemini.
+ * with a note. Every Touch is saved as an Interaction. A note is also merged
+ * into the contact's Relationship memory (AI summary, key topics, follow-ups).
+ * Takes `now`, the memory adapter and a `defer` scheduler as inputs so it can
+ * be tested without a clock or Gemini.
  */
 import type { RelationshipMemory } from "./ai";
 import { buildContactContext, stringifyStoredStringArray } from "./contact";
 import { contactsOf } from "./contacts-of";
-import { prisma } from "./db";
 import { computeStatus, type Computed } from "./due";
 
 export type TouchResult = Computed & {
   id: string;
   lastContactedAt: Date;
-  /** The last touch before this one, so the touch can be undone. */
-  previousContactedAt: Date | null;
+  /** Opaque value identifying this Touch, for undoing it. */
+  undo: string;
 };
 
 /** Runs work after the response: Next's `after()` in production. */
@@ -23,9 +23,10 @@ export type Defer = (task: () => Promise<void>) => void | Promise<void>;
 const RECENT_INTERACTIONS = 10;
 
 /**
- * Record a touch. Returns `null` when the contact is missing or not the user's.
- * With a note and a memory adapter, updates the Relationship memory through
- * `defer` (awaited inline by default). If the adapter fails, the stored
+ * Record a touch. The note is trimmed here; a blank one means no note.
+ * Returns `null` when the contact is missing or not the user's. With a note
+ * and a memory adapter, updates the Relationship memory through `defer`
+ * (awaited inline by default). If the adapter fails, the stored
  * memory is left unchanged.
  */
 export async function recordTouch(input: {
@@ -37,63 +38,38 @@ export async function recordTouch(input: {
   defer?: Defer;
 }): Promise<TouchResult | null> {
   const contacts = contactsOf(input.userId);
-  const before = await contacts.get(input.contactId);
-  if (!before) return null;
-  const touched = await contacts.update(input.contactId, {
-    lastContactedAt: input.now,
-  });
-  if (!touched) return null;
+  const note = input.note.trim() || null;
+  const earlier = note ? await contacts.recentNotes(input.contactId, RECENT_INTERACTIONS) : [];
+  const saved = await contacts.saveTouch(input.contactId, { note, at: input.now });
+  if (!saved) return null;
+  const { contact: touched, touchId } = saved;
 
-  const note = input.note.trim();
-  if (note) {
-    const earlier = await prisma.interaction.findMany({
-      where: { contactId: touched.id },
-      orderBy: { notedAt: "desc" },
-      take: RECENT_INTERACTIONS,
-    });
-    await prisma.interaction.create({
-      data: { contactId: touched.id, note, notedAt: input.now },
-    });
-
-    const memory = input.memory;
-    if (memory) {
-      const context = buildContactContext({ ...touched, interactions: earlier });
-      const defer = input.defer ?? ((task) => task());
-      await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
-    }
+  const memory = input.memory;
+  if (note && memory) {
+    const context = buildContactContext({ ...touched, interactions: earlier ?? [] });
+    const defer = input.defer ?? ((task) => task());
+    await defer(() => rememberNote(input.userId, touched.id, note, context, memory));
   }
 
   return {
     id: touched.id,
     lastContactedAt: input.now,
-    previousContactedAt: before.lastContactedAt,
+    undo: touchId,
     ...computeStatus(touched, input.now),
   };
 }
 
-/**
- * Undo a touch recorded at `touchedAt`: put the last touch back to
- * `restoreTo` and drop the note saved with it. Does nothing (returns false)
- * once the contact has been touched again since. Returns `null` when the
- * contact is missing or not the user's. Relationship memory already learned
- * from the note is kept.
- */
-export async function undoTouch(input: {
-  userId: string;
-  contactId: string;
-  touchedAt: Date;
-  restoreTo: Date | null;
-}): Promise<boolean | null> {
-  const contacts = contactsOf(input.userId);
-  const contact = await contacts.get(input.contactId);
-  if (!contact) return null;
-  if (contact.lastContactedAt?.getTime() !== input.touchedAt.getTime()) return false;
+export type UndoResult = "undone" | "not_found" | "touched_again";
 
-  await contacts.update(contact.id, { lastContactedAt: input.restoreTo });
-  await prisma.interaction.deleteMany({
-    where: { contactId: contact.id, notedAt: input.touchedAt },
-  });
-  return true;
+/**
+ * Undo a Touch by its Undo value (from `recordTouch`): put the contact's last
+ * Touch back to the one stored with it and drop that Touch and its note.
+ * "not_found" when the value is unknown or not the user's; "touched_again"
+ * (changing nothing) once the contact has been touched since. Relationship
+ * memory already learned from the note is kept.
+ */
+export async function undoTouch(input: { userId: string; undo: string }): Promise<UndoResult> {
+  return contactsOf(input.userId).undoTouch(input.undo);
 }
 
 async function rememberNote(

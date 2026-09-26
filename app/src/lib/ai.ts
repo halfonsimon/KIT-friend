@@ -4,6 +4,7 @@
  */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Category, ContactContext } from "./contact";
+import { dayMonth } from "./contact-card";
 
 export type ProcessedNote = {
   keyTopics: string[];
@@ -73,13 +74,10 @@ Keep the tone professional but personable.`;
 }
 
 /**
- * Process a new interaction note and generate updated summary, topics, and questions to ask.
- * Throws if Gemini fails or answers with something that isn't the expected JSON.
+ * The prompt that asks Gemini to merge a new note into the Relationship memory.
+ * Pure, so it reads the same whatever the server's timezone.
  */
-async function processInteractionNote(
-  newNote: string,
-  context: ContactContext,
-): Promise<ProcessedNote> {
+export function buildMemoryPrompt(newNote: string, context: ContactContext): string {
   const categoryInstructions = getCategoryInstructions(context.category);
 
   const existingContext = context.existingSummary
@@ -88,10 +86,10 @@ async function processInteractionNote(
 
   const recentHistory = context.recentInteractions
     .slice(0, 5)
-    .map((i) => `- ${i.date.toLocaleDateString()}: ${i.note}`)
+    .map((i) => `- ${dayMonth(i.date)}: ${i.note}`)
     .join("\n");
 
-  const prompt = `You are a personal relationship assistant helping someone maintain meaningful connections.
+  return `You are a personal relationship assistant helping someone maintain meaningful connections.
 
 Contact: ${context.name}
 Category: ${context.category}
@@ -119,6 +117,17 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "followUps": ["question 1?", "question 2?"],
   "summary": "The summary text here."
 }`;
+}
+
+/**
+ * Process a new interaction note and generate updated summary, topics, and questions to ask.
+ * Throws if Gemini fails or answers with something that isn't the expected JSON.
+ */
+async function processInteractionNote(
+  newNote: string,
+  context: ContactContext,
+): Promise<ProcessedNote> {
+  const prompt = buildMemoryPrompt(newNote, context);
 
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });

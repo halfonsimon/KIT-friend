@@ -78,6 +78,40 @@ describe("today", () => {
     expect(names(goalMet.others)).toEqual(["C"]);
   });
 
+  it("says the Daily goal is met once as many Contacts as the goal were Touched today", async () => {
+    const alice = await createUser("alice@example.com");
+    await setDailyGoal(alice.id, 2);
+    await createContact(alice.id, "Talked this morning", 0);
+    await createContact(alice.id, "Talked at lunch", 0);
+    await createContact(alice.id, "Still due", 10);
+
+    const view = await today(alice.id, NOW);
+
+    expect(view.goalMet).toBe(true);
+  });
+
+  it("says the Daily goal is not met while fewer than the goal were Touched today", async () => {
+    const alice = await createUser("alice@example.com");
+    await setDailyGoal(alice.id, 2);
+    await createContact(alice.id, "Talked this morning", 0);
+    await createContact(alice.id, "Still due", 10);
+
+    const view = await today(alice.id, NOW);
+
+    expect(view.goalMet).toBe(false);
+  });
+
+  it("does not call an empty day done when nobody was Touched and nobody is due", async () => {
+    const alice = await createUser("alice@example.com");
+    await createContact(alice.id, "Talked yesterday", 1);
+
+    const view = await today(alice.id, NOW);
+
+    expect(view.suggested).toEqual([]);
+    expect(view.doneToday).toBe(0);
+    expect(view.goalMet).toBe(false);
+  });
+
   it("leaves out Paused Contacts and other users' Contacts", async () => {
     const alice = await createUser("alice@example.com");
     const bob = await createUser("bob@example.com");

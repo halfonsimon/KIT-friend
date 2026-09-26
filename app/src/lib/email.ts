@@ -1,12 +1,11 @@
 // src/lib/email.ts
 // Build a subject + simple HTML for the digest (no sending here).
 
+import { dayMonth, digestStatusLabel } from "./contact-card";
 import type { DigestData, DigestItem } from "./digest";
-import { formatDateUTC } from "./format";
-import { statusLabel } from "./due";
 
-function row(i: DigestItem) {
-  const label = statusLabel(i);
+function row(i: DigestItem, now: Date) {
+  const label = digestStatusLabel(i);
   return `
     <tr>
       <td style="padding:8px 0;">
@@ -15,13 +14,13 @@ function row(i: DigestItem) {
       </td>
       <td style="padding:8px 0;text-align:right;font-size:13px;">
         <span>${label}</span>
-        <div style="color:#334155">${formatDateUTC(i.nextDueAt)}</div>
+        <div style="color:#334155">${dayMonth(i.nextDueAt, now)}</div>
       </td>
     </tr>
   `;
 }
 
-export function renderDigestEmail(d: DigestData) {
+export function renderDigestEmail(d: DigestData, now: Date) {
   const subject = `Keep In Touch — ${d.stats.overdue} overdue, ${d.stats.today} today`;
 
   const section = (title: string, items: DigestItem[]) =>
@@ -29,7 +28,7 @@ export function renderDigestEmail(d: DigestData) {
       ? `
   <h2 style="margin:16px 0 8px 0;font-size:16px">${title}</h2>
   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${items
-    .map(row)
+    .map((i) => row(i, now))
     .join("")}</table>`
       : "";
 
@@ -47,7 +46,7 @@ export function renderDigestEmail(d: DigestData) {
     ${section("Today", d.today)}
     ${section("Upcoming", d.upcoming)}
     <p style="margin-top:24px;font-size:12px;color:#64748b">
-      Contacts inactivated are excluded.
+      Paused Contacts are left out.
     </p>
   </body>
 </html>`;

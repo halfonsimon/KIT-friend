@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { smtpMailer } from "@/lib/mailer";
 import { runScheduledDigests, sendTestDigest } from "@/lib/digest-delivery";
+import { getAccount } from "@/lib/account";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ function hasSMTP() {
 
 /**
  * Two modes:
- * - ?test=true  → authenticated user sends their own digest (UI "Send Test Email" button)
+ * - ?test=true  → authenticated user sends their own digest (Settings' "Send me one now" button)
  * - no test     → cron job sends digest to all users (requires CRON_SECRET bearer)
  */
 export async function POST(request: Request) {
@@ -40,13 +41,18 @@ export async function POST(request: Request) {
     // ── Test mode: send only the current user's digest ──────────────
     if (isTest) {
       const session = await auth();
-      if (!session?.user?.id || !session.user.email) {
+      if (!session?.user?.id) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
       }
 
+      // The account email stored on the user, the same one the preview and the scheduled run use.
+      const account = await getAccount(session.user.id);
+      if (!account) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
       const result = await sendTestDigest({
         userId: session.user.id,
-        accountEmail: session.user.email,
+        accountEmail: account.email,
         now: new Date(),
         mailer: smtpMailer(),
       });

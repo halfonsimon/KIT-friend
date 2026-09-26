@@ -10,7 +10,7 @@ async function createUser(email: string) {
 }
 
 describe("contactPage", () => {
-  it("loads the Contact, the user's Settings and the Interactions, newest first", async () => {
+  it("loads the Contact, the user's Settings and the notes, newest first", async () => {
     const alice = await createUser("alice@example.com");
     const noa = await prisma.contact.create({
       data: {
@@ -28,21 +28,21 @@ describe("contactPage", () => {
     const settings = { ...(await getSettings(alice.id)), dailyGoal: 5 };
     await saveSettings(alice.id, settings);
 
-    const page = await contactPage(alice.id, noa.id);
+    const page = await contactPage(alice.id, noa.id, new Date());
 
     expect(page?.contact.name).toBe("Noa");
     expect(page?.settings.dailyGoal).toBe(5);
-    expect(page?.interactions.map((i) => i.note)).toEqual(["Newer", "Older"]);
+    expect(page?.contact.interactions.map((i) => i.note)).toEqual(["Newer", "Older"]);
   });
 
   it("falls back to default Settings when the user has none saved", async () => {
     const alice = await createUser("alice@example.com");
     const noa = await prisma.contact.create({ data: { userId: alice.id, name: "Noa", intervalDays: 3 } });
 
-    const page = await contactPage(alice.id, noa.id);
+    const page = await contactPage(alice.id, noa.id, new Date());
 
     expect(page?.settings).toEqual(await getSettings(alice.id));
-    expect(page?.interactions).toEqual([]);
+    expect(page?.contact.interactions).toEqual([]);
   });
 
   it("returns null for another user's Contact, and never their Interactions", async () => {
@@ -52,12 +52,12 @@ describe("contactPage", () => {
       data: { userId: bob.id, name: "Bob's friend", intervalDays: 7, interactions: { create: [{ note: "Private" }] } },
     });
 
-    expect(await contactPage(alice.id, bobsFriend.id)).toBeNull();
+    expect(await contactPage(alice.id, bobsFriend.id, new Date())).toBeNull();
   });
 
   it("returns null for a Contact that doesn't exist", async () => {
     const alice = await createUser("alice@example.com");
 
-    expect(await contactPage(alice.id, "missing")).toBeNull();
+    expect(await contactPage(alice.id, "missing", new Date())).toBeNull();
   });
 });

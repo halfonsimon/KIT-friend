@@ -1,11 +1,9 @@
 // One Contact: what you know about them, your notes, and the Edit sheet.
 import { notFound } from "next/navigation";
 import ContactScreen, { type ContactNote } from "@/components/contacts/ContactScreen";
-import { toTodayPerson } from "@/components/today/types";
 import { requireUser } from "@/lib/auth-utils";
-import { asCategory, readStoredAiMemory } from "@/lib/contact";
+import { contactCard, dayMonth } from "@/lib/contact-card";
 import { contactPage } from "@/lib/contact-page";
-import { computeStatus } from "@/lib/due";
 
 export const dynamic = "force-dynamic";
 
@@ -14,33 +12,20 @@ type Props = {
   searchParams: Promise<{ edit?: string }>;
 };
 
-const dayMonth = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
 const month = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
 export default async function ContactPage({ params, searchParams }: Props) {
   const userId = await requireUser();
   const [{ id }, { edit }] = await Promise.all([params, searchParams]);
-  const page = await contactPage(userId, id);
-  if (!page) notFound();
-  const { contact, settings, interactions } = page;
-
   const now = new Date();
+  const page = await contactPage(userId, id, now);
+  if (!page) notFound();
+  const { contact, settings } = page;
 
-  const person = toTodayPerson(
-    {
-      ...contact,
-      category: asCategory(contact.category),
-      hasAiSummary: !!contact.aiSummary,
-      ...readStoredAiMemory(contact),
-      ...computeStatus(contact, now),
-    },
-    now
-  );
+  const person = contactCard(contact, now);
 
-  const notes: ContactNote[] = interactions
-    .filter((i) => i.note?.trim())
-    .map((i) => ({ id: i.id, date: dayMonth(i.notedAt), note: i.note!.trim() }));
-  const oldest = notes.length ? interactions.filter((i) => i.note?.trim()).at(-1)!.notedAt : null;
+  const notes: ContactNote[] = contact.interactions.map((i) => ({ id: i.id, date: dayMonth(i.notedAt, now), note: i.note }));
+  const oldest = contact.interactions.at(-1)?.notedAt;
   const notesSummary = oldest
     ? `${notes.length} ${notes.length === 1 ? "note" : "notes"} since ${month(oldest)}`
     : null;
@@ -48,7 +33,6 @@ export default async function ContactPage({ params, searchParams }: Props) {
   return (
     <ContactScreen
       person={person}
-      isActive={contact.isActive}
       notes={notes}
       notesSummary={notesSummary}
       defaults={settings.defaultsByCategory}

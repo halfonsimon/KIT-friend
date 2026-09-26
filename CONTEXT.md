@@ -24,14 +24,26 @@ One user's Contacts with their Due status, in due order: overdue, then today, th
 The user recording that they just got in touch with a Contact, optionally with a note. Resets the Contact's due date.
 _Avoid_: check-in, contact (as a verb)
 
+Screens may say "check in" to users; code and docs say Touch.
+
 A Touch can be undone right after it is recorded: the last Touch goes back to what it was and the note saved with it is dropped.
 
 **Interaction**:
-A saved note from a Touch.
+A recorded Touch, with its note if one was written.
 
 **Relationship memory**:
 The AI-maintained summary, key topics and follow-up questions for a Contact, updated from each Touch's note.
 _Avoid_: AI summary (that's only one part of it), briefing
 
 **Digest**:
-The daily list of overdue, due-today and upcoming Contacts, shown on the digest page and sent by email.
+The daily email listing overdue, due-today and upcoming Contacts. Previewed and sent manually from Settings. Leaves out Paused Contacts.
+
+**Today**:
+The signed-in home: the overdue and due-today Contacts, so the user can Touch them. Leaves out Paused Contacts.
+
+**Paused**:
+A Contact the user keeps but gets no nudges about: left out of Today and the Digest, still listed in Contacts.
+_Avoid_: inactive, excluded from digest
+
+**Daily goal**:
+How many overdue or due Contacts the user aims to Touch each day, set in Settings. Today suggests that many to start with.

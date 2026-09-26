@@ -7,38 +7,24 @@ import CategoryChip, { categoryStyle } from "@/components/ui/CategoryChip";
 import Icon from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/button";
 import { CallLink } from "@/components/today/bits";
-import TalkSheet from "@/components/today/TalkSheet";
-import { everyLabel, type TodayPerson } from "@/components/today/types";
-import { Toast, useTalk } from "@/components/talk/useTalk";
+import type { CardState, ContactCard } from "@/lib/contact-card";
+import { useWeTalked } from "@/components/talk/WeTalked";
 import { CATEGORY_VALUES, type Category } from "@/lib/contact";
 import ContactSheet from "./ContactSheet";
 import { swipeMove, swipeTalks } from "./swipe";
 
-/** A row of the Contacts list: a person plus where they stand. */
-export type ContactRow = TodayPerson & {
-  isActive: boolean;
-  /** Due now (overdue or today), for active Contacts. */
-  due: boolean;
-  daysUntilDue: number;
-};
+type StatusFilter = "any" | CardState;
 
-type StatusFilter = "any" | "due" | "ok" | "paused";
-
-const STATUS_FILTERS: { value: StatusFilter; label: string; matches: (c: ContactRow) => boolean }[] = [
-  { value: "any", label: "Any", matches: () => true },
-  { value: "due", label: "Due now", matches: (c) => c.isActive && c.due },
-  { value: "ok", label: "Up to date", matches: (c) => c.isActive && !c.due },
-  { value: "paused", label: "Paused", matches: (c) => !c.isActive },
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "any", label: "Any" },
+  { value: "due", label: "Due now" },
+  { value: "upToDate", label: "Up to date" },
+  { value: "paused", label: "Paused" },
 ];
 
-const SHOWN_AT_FIRST = 14;
+const matchesStatus = (status: StatusFilter) => (c: ContactCard) => status === "any" || c.state === status;
 
-/** "Now", "Tomorrow", "In 5 days" or "Paused". */
-function nextLabel(c: ContactRow) {
-  if (!c.isActive) return "Paused";
-  if (c.due) return "Now";
-  return c.daysUntilDue === 1 ? "Tomorrow" : `In ${c.daysUntilDue} days`;
-}
+const SHOWN_AT_FIRST = 14;
 
 function peopleCount(n: number) {
   return `${n} ${n === 1 ? "person" : "people"}`;
@@ -90,7 +76,7 @@ function SwipeRow({
   onTalk,
   onSwipeTalk,
 }: {
-  person: ContactRow;
+  person: ContactCard;
   busy: boolean;
   onTalk: () => void;
   onSwipeTalk: () => void;
@@ -162,9 +148,9 @@ function SwipeRow({
           <Icon name={style.icon} size={17} />
         </span>
         <Link href={`/contacts/${person.id}`} className="flex min-w-0 flex-1 flex-col text-ink">
-          <span className={`truncate text-base font-bold ${person.isActive ? "" : "text-muted"}`}>{person.name}</span>
+          <span className={`truncate text-base font-bold ${person.state === "paused" ? "text-muted" : ""}`}>{person.name}</span>
           <span className="truncate text-[13px] text-muted">
-            {person.isActive ? person.lastTalkedShort : `Paused · ${person.lastTalkedShort}`}
+            {person.state === "paused" ? `Paused · ${person.lastTalkedShort}` : person.lastTalkedShort}
           </span>
         </Link>
         <button type="button" onClick={onTalk} disabled={busy} className={buttonClass("soft", "sm", "h-10 px-3.5 text-[13px]")}>
@@ -182,14 +168,13 @@ export default function ContactsScreen({
   defaults,
   adding = false,
 }: {
-  contacts: ContactRow[];
+  contacts: ContactCard[];
   defaults: Record<Category, number>;
   /** Open with the "Add someone" sheet (at /contacts/new). */
   adding?: boolean;
 }) {
   const router = useRouter();
-  const { talk, undo, toast, busyId } = useTalk();
-  const [talkingTo, setTalkingTo] = useState<ContactRow | null>(null);
+  const { open, talk, busyId, view } = useWeTalked();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
   const [status, setStatus] = useState<StatusFilter>("any");
@@ -200,8 +185,8 @@ export default function ContactsScreen({
     return q ? contacts.filter((c) => c.name.toLowerCase().includes(q)) : contacts;
   }, [contacts, query]);
 
-  const statusMatch = STATUS_FILTERS.find((f) => f.value === status)!.matches;
-  const inCategory = (c: ContactRow) => category === "all" || c.category === category;
+  const statusMatch = matchesStatus(status);
+  const inCategory = (c: ContactCard) => category === "all" || c.category === category;
   const visible = searched.filter((c) => inCategory(c) && statusMatch(c));
   const shown = showAll ? visible : visible.slice(0, SHOWN_AT_FIRST);
 
@@ -221,14 +206,14 @@ export default function ContactsScreen({
   const statusOptions = STATUS_FILTERS.map((f) => ({
     value: f.value,
     label: f.label,
-    count: searched.filter((c) => inCategory(c) && f.matches(c)).length,
+    count: searched.filter((c) => inCategory(c) && matchesStatus(f.value)(c)).length,
   }));
 
   // Phone chips: one row mixing the categories and Paused, like the design.
   const chipValue = status === "paused" ? "paused" : category;
   const chips = [
     ...categoryOptions.map((o) => ({ value: o.value as string, label: o.label, count: o.count })),
-    { value: "paused", label: "Paused", count: searched.filter((c) => !c.isActive).length },
+    { value: "paused", label: "Paused", count: searched.filter(matchesStatus("paused")).length },
   ];
   const pickChip = (v: string) => {
     if (v === "paused") {
@@ -240,8 +225,6 @@ export default function ContactsScreen({
     }
   };
 
-  const openTalk = useCallback((c: ContactRow) => setTalkingTo(c), []);
-  const closeSheet = useCallback(() => setTalkingTo(null), []);
   const closeAdd = useCallback(() => router.replace("/contacts", { scroll: false }), [router]);
 
   const search = (
@@ -343,7 +326,7 @@ export default function ContactsScreen({
                   key={c.id}
                   person={c}
                   busy={busyId === c.id}
-                  onTalk={() => openTalk(c)}
+                  onTalk={() => open(c)}
                   onSwipeTalk={() => talk(c, "")}
                 />
               ))}
@@ -375,24 +358,24 @@ export default function ContactsScreen({
                 >
                   <Link
                     href={`/contacts/${c.id}`}
-                    className={`truncate text-base font-bold hover:text-brand ${c.isActive ? "text-ink" : "text-muted"}`}
+                    className={`truncate text-base font-bold hover:text-brand ${c.state === "paused" ? "text-muted" : "text-ink"}`}
                   >
                     {c.name}
                   </Link>
                   <span>
                     <CategoryChip category={c.category} />
                   </span>
-                  <span className="text-sm text-muted">{everyLabel(c.intervalDays)}</span>
+                  <span className="text-sm text-muted">{c.every}</span>
                   <span className="truncate text-sm text-muted">{c.lastTalked}</span>
-                  <span className={`text-sm font-bold ${c.isActive && c.due ? "text-brand" : "text-muted"}`}>
-                    {nextLabel(c)}
+                  <span className={`text-sm font-bold ${c.state === "due" ? "text-brand" : "text-muted"}`}>
+                    {c.nextDue}
                   </span>
                   <span>
                     <CallLink name={c.name} phone={c.phone} className="h-11 w-11 text-ink hover:bg-white" />
                   </span>
                   <button
                     type="button"
-                    onClick={() => openTalk(c)}
+                    onClick={() => open(c)}
                     disabled={busyId === c.id}
                     aria-label={`We talked with ${c.name}`}
                     className={buttonClass("soft", "sm")}
@@ -407,18 +390,8 @@ export default function ContactsScreen({
         </div>
       </main>
 
-      {talkingTo && (
-        <TalkSheet
-          person={talkingTo}
-          saving={busyId === talkingTo.id}
-          onClose={closeSheet}
-          onSubmit={async (note) => {
-            if (await talk(talkingTo, note)) setTalkingTo(null);
-          }}
-        />
-      )}
       {adding && <ContactSheet defaults={defaults} onClose={closeAdd} />}
-      <Toast toast={toast} onUndo={undo} />
+      {view}
     </div>
   );
 }

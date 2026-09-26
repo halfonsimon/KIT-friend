@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { fakeMailer } from "@/test/fake-mailer";
-import { runScheduledDigests, sendTestDigest } from "./digest-delivery";
+import { previewDigest, runScheduledDigests, sendTestDigest } from "./digest-delivery";
 import { getSettings, saveSettings } from "./settings";
 
 const NOW = new Date("2026-03-10T12:00:00Z");
@@ -191,5 +191,136 @@ describe("runScheduledDigests", () => {
     );
     const aliceSetting = await prisma.setting.findUnique({ where: { userId: alice.id } });
     expect(aliceSetting?.lastEmailDigestAt).toBeNull();
+  });
+});
+
+describe("previewDigest", () => {
+  const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
+
+  /** A weekly Contact last touched `n` days ago: overdue past 7, due today at 7. */
+  async function createContact(userId: string, name: string, lastTouchedDaysAgo: number, isActive = true) {
+    return prisma.contact.create({
+      data: { userId, name, intervalDays: 7, lastContactedAt: daysAgo(lastTouchedDaysAgo), isActive },
+    });
+  }
+
+  const listed = (items: { name: string; label: string }[]) => items.map((i) => `${i.name}: ${i.label}`);
+
+  it.each([
+    ["a saved digest email", "alice+digest@example.com", "alice+digest@example.com"],
+    ["a cleared digest email", null, "alice@example.com"],
+    ["a blank digest email", "", "alice@example.com"],
+  ])("names the same recipient as the test send, with %s", async (_, digestEmail, expected) => {
+    const alice = await createUser("alice@example.com");
+    await prisma.setting.create({ data: { userId: alice.id, digestEmail } });
+    const mailer = fakeMailer();
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+    const sent = await sendTestDigest({ userId: alice.id, accountEmail: alice.email, now: NOW, mailer });
+
+    expect(preview.recipient).toBe(expected);
+    expect(sent.recipient).toBe(expected);
+  });
+
+  it("has the subject of the email a test send delivers", async () => {
+    const alice = await createUser("alice@example.com");
+    await prisma.contact.create({
+      data: { userId: alice.id, name: "Mum", intervalDays: 7, lastContactedAt: new Date("2026-03-01T09:00:00Z") },
+    });
+    const mailer = fakeMailer();
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+    await sendTestDigest({ userId: alice.id, accountEmail: alice.email, now: NOW, mailer });
+
+    expect(preview.subject).toBe("Keep In Touch — 1 overdue, 0 today");
+    expect(mailer.sent[0].subject).toBe(preview.subject);
+  });
+
+  it("lists overdue before due today, in due order, with the email's status wording", async () => {
+    const alice = await createUser("alice@example.com");
+    await createContact(alice.id, "Dana", 7);
+    await createContact(alice.id, "Ben", 8);
+    await createContact(alice.id, "Cleo", 10);
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(listed(preview.due)).toEqual(["Cleo: 3d overdue", "Ben: 1d overdue", "Dana: Due today"]);
+    expect(preview.moreDue).toBe(0);
+  });
+
+  it("lists the first five due and counts the rest as waiting", async () => {
+    const alice = await createUser("alice@example.com");
+    for (const n of [8, 9, 10, 11, 12, 13, 14]) await createContact(alice.id, `Due ${n - 7}d ago`, n);
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(preview.due.map((i) => i.name)).toEqual([
+      "Due 7d ago", "Due 6d ago", "Due 5d ago", "Due 4d ago", "Due 3d ago",
+    ]);
+    expect(preview.moreDue).toBe(2);
+  });
+
+  it("leaves out Paused Contacts and other users' Contacts", async () => {
+    const alice = await createUser("alice@example.com");
+    const bob = await createUser("bob@example.com");
+    await createContact(alice.id, "Alice's friend", 10);
+    await createContact(alice.id, "Alice's paused friend", 10, false);
+    await createContact(alice.id, "Alice's paused colleague", 2, false);
+    await createContact(bob.id, "Bob's friend", 10);
+    await createContact(bob.id, "Bob's colleague", 2);
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(preview.due.map((i) => i.name)).toEqual(["Alice's friend"]);
+    expect(preview.upcoming).toEqual([]);
+  });
+
+  it("lists as many upcoming Contacts as the user's upcoming count, soonest first", async () => {
+    const alice = await createUser("alice@example.com");
+    await prisma.setting.create({ data: { userId: alice.id, upcomingCount: 2 } });
+    await createContact(alice.id, "In 4 days", 3);
+    await createContact(alice.id, "In 2 days", 5);
+    await createContact(alice.id, "In 6 days", 1);
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(listed(preview.upcoming)).toEqual(["In 2 days: 2d left", "In 4 days: 4d left"]);
+  });
+
+  it("reports no last send before any scheduled digest", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(preview.lastSent).toBeNull();
+  });
+
+  it("reports the scheduled send, and a test send doesn't change it", async () => {
+    const alice = await createUser("alice@example.com", { digestTime: "06:00" });
+    const scheduledAt = new Date("2026-03-10T06:05:00Z");
+    await runScheduledDigests({ now: scheduledAt, mailer: fakeMailer() });
+
+    await sendTestDigest({ userId: alice.id, accountEmail: alice.email, now: NOW, mailer: fakeMailer() });
+    const preview = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: NOW });
+
+    expect(preview.lastSent).toEqual({ at: scheduledAt, today: true });
+  });
+
+  it("counts a send as today only on its UTC day, like the once-a-day rule", async () => {
+    const alice = await createUser("alice@example.com", { digestTime: "00:00" });
+    const sentBeforeMidnight = new Date("2026-03-09T23:55:00Z");
+    await runScheduledDigests({ now: sentBeforeMidnight, mailer: fakeMailer() });
+    const justBefore = new Date("2026-03-09T23:59:00Z");
+    const justAfter = new Date("2026-03-10T00:05:00Z");
+
+    const before = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: justBefore });
+    const blocked = await runScheduledDigests({ now: justBefore, mailer: fakeMailer() });
+    const after = await previewDigest({ userId: alice.id, accountEmail: alice.email, now: justAfter });
+    const sent = await runScheduledDigests({ now: justAfter, mailer: fakeMailer() });
+
+    expect(before.lastSent).toEqual({ at: sentBeforeMidnight, today: true });
+    expect(blocked.map((o) => o.status)).toEqual(["already_sent_today"]);
+    expect(after.lastSent).toEqual({ at: sentBeforeMidnight, today: false });
+    expect(sent.map((o) => o.status)).toEqual(["sent"]);
   });
 });

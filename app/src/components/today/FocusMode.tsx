@@ -6,12 +6,12 @@ import { buttonClass } from "@/components/ui/button";
 import { categoryStyle } from "@/components/ui/CategoryChip";
 import { CallLink, NextCallList, NoteInput } from "./bits";
 import { Glow } from "./ListMode";
-import { everyLabel, type TodayPerson } from "./types";
+import type { ContactCard } from "@/lib/contact-card";
 
 type Props = {
-  queue: TodayPerson[];
-  onTalk: (p: TodayPerson, note: string) => Promise<boolean>;
-  onLater: (p: TodayPerson) => void;
+  queue: ContactCard[];
+  onTalk: (p: ContactCard, note: string) => Promise<boolean>;
+  onLater: (p: ContactCard) => void;
   busy: boolean;
 };
 
@@ -35,17 +35,17 @@ function Peeks({ count, big = false }: { count: number; big?: boolean }) {
   );
 }
 
-function CategoryPill({ person, withEvery = false }: { person: TodayPerson; withEvery?: boolean }) {
+function CategoryPill({ person, withEvery = false }: { person: ContactCard; withEvery?: boolean }) {
   const { label, icon } = categoryStyle[person.category];
   return (
     <span className="inline-flex h-8 items-center gap-1.5 self-start whitespace-nowrap rounded-full bg-white/15 px-3 text-[13px] font-bold">
       <Icon name={icon} size={15} />
-      {withEvery ? `${label}, ${everyLabel(person.intervalDays).toLowerCase()}` : label}
+      {withEvery ? `${label}, ${person.every.toLowerCase()}` : label}
     </span>
   );
 }
 
-function LastTalkedChip({ person, className = "" }: { person: TodayPerson; className?: string }) {
+function LastTalkedChip({ person, className = "" }: { person: ContactCard; className?: string }) {
   return (
     <span
       className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full bg-white pl-1.5 pr-3.5 text-[13px] font-bold text-ink shadow-float ${className}`}
@@ -58,10 +58,10 @@ function LastTalkedChip({ person, className = "" }: { person: TodayPerson; class
   );
 }
 
-function FocusPerson({ person, behind, onTalk, onLater, busy }: { person: TodayPerson; behind: number } & Omit<Props, "queue">) {
+function FocusPerson({ person, behind, onTalk, onLater, busy }: { person: ContactCard; behind: number } & Omit<Props, "queue">) {
   const [note, setNote] = useState("");
   const talk = async () => {
-    if (await onTalk(person, note.trim())) setNote("");
+    if (await onTalk(person, note)) setNote("");
   };
   const actions = (large: boolean) => (
     <>
@@ -93,7 +93,7 @@ function FocusPerson({ person, behind, onTalk, onLater, busy }: { person: TodayP
             </span>
             <div className="relative flex flex-col items-start gap-1.5">
               <h2 className="display text-[56px] leading-[0.95] [overflow-wrap:anywhere]">{person.name}</h2>
-              <span className="text-[15px] font-medium text-brand-soft">{everyLabel(person.intervalDays)}</span>
+              <span className="text-[15px] font-medium text-brand-soft">{person.every}</span>
               <LastTalkedChip person={person} className="mt-1.5 max-w-full" />
             </div>
           </article>
