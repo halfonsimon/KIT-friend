@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
+import { CATEGORY_VALUES } from "./contact";
 import { contactsOf } from "./contacts-of";
 import { roster } from "./roster";
 
@@ -310,5 +311,148 @@ describe("contactsOf(...) notes", () => {
 
     expect((await contactsOf(bob.id).recentNotes(bobsFriend.id, 10))?.map((n) => n.note)).toEqual(["Private"]);
     expect((await contactsOf(bob.id).get(bobsFriend.id))?.lastContactedAt).toEqual(daysAgo(1));
+  });
+});
+
+/** What the Contact form submits; `isActive` is sent only when the Contact isn't Paused. */
+function contactForm(fields: Record<string, string>) {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) form.set(name, value);
+  return form;
+}
+
+const pausedFriend = { name: "Ada", phone: "", category: "FRIEND", intervalDays: "" };
+const newFriend = { ...pausedFriend, isActive: "on" };
+
+describe("contactsOf(...) form input", () => {
+  it("creates a contact with the user's Category default when the Interval is blank", async () => {
+    const alice = await createUser("alice@example.com");
+    await prisma.setting.create({ data: { userId: alice.id, defaultWorkDays: 10 } });
+
+    const result = await contactsOf(alice.id).createFromForm(
+      contactForm({ ...newFriend, category: "WORK", intervalDays: "  " })
+    );
+
+    expect(result).toMatchObject({ ok: true, contact: { name: "Ada", category: "WORK", intervalDays: 10 } });
+  });
+
+  it("creates a contact with the built-in Category default when the user has no Settings", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const result = await contactsOf(alice.id).createFromForm(contactForm({ ...newFriend, category: "FAMILY" }));
+
+    expect(result).toMatchObject({ ok: true, contact: { intervalDays: 7 } });
+  });
+
+  it("keeps a typed Interval, and a new contact is always active", async () => {
+    const alice = await createUser("alice@example.com");
+
+    const result = await contactsOf(alice.id).createFromForm(contactForm({ ...pausedFriend, intervalDays: " 45 " }));
+
+    expect(result).toMatchObject({ ok: true, contact: { intervalDays: 45, isActive: true } });
+  });
+
+  it("pauses a contact when the form leaves out the active field, and reactivates it when present", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const alices = contactsOf(alice.id);
+
+    expect(await alices.updateFromForm(friend.id, contactForm(pausedFriend))).toMatchObject({
+      ok: true,
+      contact: { isActive: false },
+    });
+    expect(await alices.updateFromForm(friend.id, contactForm(newFriend))).toMatchObject({
+      ok: true,
+      contact: { isActive: true },
+    });
+  });
+
+  it("switches a blank Interval to the current default for the contact's new Category", async () => {
+    const alice = await createUser("alice@example.com");
+    await prisma.setting.create({ data: { userId: alice.id, defaultWorkDays: 10 } });
+    const friend = await prisma.contact.create({
+      data: { userId: alice.id, name: "Friend", category: "FRIEND", intervalDays: 45 },
+    });
+
+    const result = await contactsOf(alice.id).updateFromForm(
+      friend.id,
+      contactForm({ ...newFriend, category: "WORK", intervalDays: "" })
+    );
+
+    expect(result).toMatchObject({ ok: true, contact: { category: "WORK", intervalDays: 10 } });
+  });
+
+  it.each([
+    ["0", "Must be between 1 and 365 days"],
+    ["366", "Must be between 1 and 365 days"],
+    ["2.5", "Use whole days"],
+    ["abc", "Enter a number of days"],
+  ])("rejects the Interval %s with %j and saves nothing", async (intervalDays, message) => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const alices = contactsOf(alice.id);
+
+    const created = await alices.createFromForm(contactForm({ ...newFriend, intervalDays }));
+    const updated = await alices.updateFromForm(friend.id, contactForm({ ...newFriend, intervalDays }));
+
+    expect(created).toEqual({ ok: false, fieldErrors: { intervalDays: message } });
+    expect(updated).toEqual({ ok: false, fieldErrors: { intervalDays: message } });
+    expect(await prisma.contact.count()).toBe(1);
+    expect(await alices.get(friend.id)).toMatchObject({ name: "Friend", intervalDays: 7 });
+  });
+
+  it("names every invalid field with one message each, and saves nothing", async () => {
+    const alice = await createUser("alice@example.com");
+    const friend = await createContact(alice.id, "Friend");
+    const alices = contactsOf(alice.id);
+    const invalid = contactForm({ ...newFriend, name: "   ", category: "ENEMY", intervalDays: "-3" });
+
+    const expected = {
+      ok: false,
+      fieldErrors: {
+        name: "Name is required",
+        category: "Choose a category",
+        intervalDays: "Must be between 1 and 365 days",
+      },
+    };
+    expect(await alices.createFromForm(invalid)).toEqual(expected);
+    expect(await alices.updateFromForm(friend.id, invalid)).toEqual(expected);
+    expect(await prisma.contact.count()).toBe(1);
+    expect(await alices.get(friend.id)).toMatchObject({ name: "Friend", category: "FRIEND" });
+  });
+
+  it("accepts every Category", async () => {
+    const alice = await createUser("alice@example.com");
+
+    for (const category of CATEGORY_VALUES) {
+      expect(await contactsOf(alice.id).createFromForm(contactForm({ ...newFriend, category }))).toMatchObject({
+        ok: true,
+        contact: { category },
+      });
+    }
+  });
+
+  it("can't update another user's contact from the form, valid or not", async () => {
+    const alice = await createUser("alice@example.com");
+    const bob = await createUser("bob@example.com");
+    const bobsFriend = await createContact(bob.id, "Bob's friend");
+    const alices = contactsOf(alice.id);
+
+    expect(await alices.updateFromForm(bobsFriend.id, contactForm({ ...newFriend, name: "Hijacked" }))).toBeNull();
+    expect(await alices.updateFromForm(bobsFriend.id, contactForm({ ...newFriend, name: "" }))).toBeNull();
+    expect(await alices.updateFromForm("missing", contactForm(newFriend))).toBeNull();
+
+    expect(await contactsOf(bob.id).get(bobsFriend.id)).toMatchObject({ name: "Bob's friend", isActive: true });
+  });
+
+  it("trims the name and phone, and saves a blank phone as none", async () => {
+    const alice = await createUser("alice@example.com");
+    const alices = contactsOf(alice.id);
+
+    const withPhone = await alices.createFromForm(contactForm({ ...newFriend, name: "  Ada  ", phone: " +33 6 12 " }));
+    const withoutPhone = await alices.createFromForm(contactForm({ ...newFriend, phone: "   " }));
+
+    expect(withPhone).toMatchObject({ ok: true, contact: { name: "Ada", phone: "+33 6 12" } });
+    expect(withoutPhone).toMatchObject({ ok: true, contact: { phone: null } });
   });
 });

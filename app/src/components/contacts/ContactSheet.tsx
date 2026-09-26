@@ -6,6 +6,7 @@ import { buttonClass } from "@/components/ui/button";
 import { categoryStyle } from "@/components/ui/CategoryChip";
 import { createContact, deleteContact, updateContact, type ActionState } from "@/app/(app)/contacts/actions";
 import { CATEGORY_VALUES, DEFAULT_CATEGORY, type Category } from "@/lib/contact";
+import { INTERVAL_MAX_DAYS, INTERVAL_MIN_DAYS } from "@/lib/interval";
 
 export type EditableContact = {
   id: string;
@@ -155,7 +156,8 @@ export default function ContactSheet({
                 id={`${headingId}-days`}
                 name="intervalDays"
                 type="number"
-                min={1}
+                min={INTERVAL_MIN_DAYS}
+                max={INTERVAL_MAX_DAYS}
                 value={days}
                 onChange={(e) => {
                   setDays(e.target.value);

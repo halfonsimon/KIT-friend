@@ -5,9 +5,12 @@
  * else both come back as `null`, so callers can't tell them apart and can't
  * reach another user's row.
  */
-import type { Prisma } from "@prisma/client";
+import type { Contact, Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "./db";
-import { asCategory, type Category } from "./contact";
+import { asCategory, CATEGORY_VALUES, type Category } from "./contact";
+import { fieldErrorsFrom, type FieldErrors } from "./field-errors";
+import { IntervalDays } from "./interval";
 import { toRosterContact, type RosterContact } from "./roster";
 import { defaultIntervalFor, getSettings } from "./settings";
 
@@ -25,6 +28,39 @@ export type ContactChanges = Omit<
   Prisma.ContactUpdateInput,
   "user" | "interactions" | "intervalDays" | "category"
 > & { category?: Category } & Interval;
+
+/**
+ * What the Contact form submits, as text. A blank Interval means "this user's
+ * default for the Category". The form sends `isActive` only when the contact
+ * isn't Paused, so a missing field means Paused.
+ */
+const ContactForm = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  phone: z.string().trim().transform((phone) => phone || null),
+  category: z.enum(CATEGORY_VALUES, { error: "Choose a category" }),
+  intervalDays: z
+    .string()
+    .trim()
+    .transform((days) => (days === "" ? null : Number(days)))
+    .pipe(IntervalDays.nullable()),
+  isActive: z.boolean(),
+});
+
+function readContactForm(form: FormData) {
+  const text = (name: string) => {
+    const value = form.get(name);
+    return typeof value === "string" ? value : "";
+  };
+  return ContactForm.safeParse({
+    name: text("name"),
+    phone: text("phone"),
+    category: text("category"),
+    intervalDays: text("intervalDays"),
+    isActive: form.has("isActive"),
+  });
+}
+
+export type SaveContactResult = { ok: true; contact: Contact } | { ok: false; fieldErrors: FieldErrors };
 
 /** A Touch's note, as shown in a contact's notes timeline. */
 export type ContactInteraction = { id: string; note: string; notedAt: Date };
@@ -52,6 +88,19 @@ export function contactsOf(userId: string) {
     return stored.flatMap(({ id, note, notedAt }) =>
       note?.trim() ? [{ id, note: note.trim(), notedAt }] : []
     );
+  }
+
+  async function create(contact: NewContact) {
+    const intervalDays = await resolveInterval(contact.intervalDays ?? null, contact.category);
+    return prisma.contact.create({ data: { ...contact, intervalDays, userId } });
+  }
+
+  async function update(id: string, changes: ContactChanges) {
+    const existing = await owned(id);
+    if (!existing) return null;
+    const category = changes.category ?? asCategory(existing.category);
+    const intervalDays = await resolveInterval(changes.intervalDays, category);
+    return prisma.contact.update({ where: { id }, data: { ...changes, intervalDays } });
   }
 
   return {
@@ -114,17 +163,32 @@ export function contactsOf(userId: string) {
       });
     },
 
-    async create(contact: NewContact) {
-      const intervalDays = await resolveInterval(contact.intervalDays ?? null, contact.category);
-      return prisma.contact.create({ data: { ...contact, intervalDays, userId } });
+    create,
+
+    /**
+     * Create a contact from what the Contact form submits. A new contact is
+     * always active. Invalid input comes back as field errors and nothing is saved.
+     */
+    async createFromForm(form: FormData): Promise<SaveContactResult> {
+      const parsed = readContactForm(form);
+      if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+      return { ok: true, contact: await create({ ...parsed.data, isActive: true }) };
     },
 
-    async update(id: string, changes: ContactChanges) {
-      const existing = await owned(id);
-      if (!existing) return null;
-      const category = changes.category ?? asCategory(existing.category);
-      const intervalDays = await resolveInterval(changes.intervalDays, category);
-      return prisma.contact.update({ where: { id }, data: { ...changes, intervalDays } });
+    update,
+
+    /**
+     * Update a contact from what the Contact form submits; `null` if it isn't
+     * this user's. Invalid input comes back as field errors and nothing is saved.
+     */
+    async updateFromForm(id: string, form: FormData): Promise<SaveContactResult | null> {
+      const parsed = readContactForm(form);
+      if (parsed.success) {
+        const contact = await update(id, parsed.data);
+        return contact && { ok: true, contact };
+      }
+      if (!(await owned(id))) return null;
+      return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
     },
 
     async remove(id: string) {
