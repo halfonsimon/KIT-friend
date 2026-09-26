@@ -46,7 +46,7 @@ export function renderDigestEmail(d: DigestData, now: Date) {
     ${section("Today", d.today)}
     ${section("Upcoming", d.upcoming)}
     <p style="margin-top:24px;font-size:12px;color:#64748b">
-      Contacts inactivated are excluded.
+      Paused Contacts are left out.
     </p>
   </body>
 </html>`;
