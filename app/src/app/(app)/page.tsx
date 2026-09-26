@@ -31,6 +31,7 @@ export default async function TodayPage() {
       doneToday={view.doneToday}
       suggested={view.suggested.map((c) => contactCard(c, now))}
       others={view.others.map((c) => contactCard(c, now))}
+      goalMet={view.goalMet}
       hasContacts={view.hasContacts}
     />
   );

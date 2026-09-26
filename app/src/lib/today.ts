@@ -15,6 +15,11 @@ export type TodayView = {
   suggested: RosterContact[];
   /** The rest of the due Contacts, in due order. */
   others: RosterContact[];
+  /**
+   * Whether the Daily goal is met: nobody left to suggest, and at least as
+   * many Contacts Touched today as the goal (never on a day with no Touches).
+   */
+  goalMet: boolean;
   /** Whether the user has any active Contacts at all. */
   hasContacts: boolean;
 };
@@ -28,12 +33,14 @@ export async function today(userId: string, now: Date): Promise<TodayView> {
   const due = people.filter((p) => p.status !== "ok");
   const doneToday = people.filter((p) => p.lastContactedAt && isSameUtcDay(p.lastContactedAt, now)).length;
   const stillToSuggest = Math.max(0, dailyGoal - doneToday);
+  const suggested = due.slice(0, stillToSuggest);
 
   return {
     dailyGoal,
     doneToday,
-    suggested: due.slice(0, stillToSuggest),
+    suggested,
     others: due.slice(stillToSuggest),
+    goalMet: suggested.length === 0 && doneToday > 0 && doneToday >= dailyGoal,
     hasContacts: people.length > 0,
   };
 }

@@ -21,6 +21,7 @@ type Props = {
   doneToday: number;
   suggested: ContactCard[];
   others: ContactCard[];
+  goalMet: boolean;
   hasContacts: boolean;
 };
 
@@ -136,7 +137,7 @@ function AllSkipped({ onRestart }: { onRestart: () => void }) {
 
 /* ---------- The screen ---------- */
 
-export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, hasContacts }: Props) {
+export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday, suggested, others, goalMet, hasContacts }: Props) {
   const [mode, setMode] = useMode();
   const { talk, undo, toast, busyId } = useTalk();
   const [talkingTo, setTalkingTo] = useState<ContactCard | null>(null);
@@ -144,7 +145,6 @@ export default function TodayScreen({ firstName, dateLabel, dailyGoal, doneToday
   const [keepGoing, setKeepGoing] = useState(false);
 
   const dueCount = suggested.length + others.length;
-  const goalMet = suggested.length === 0 && doneToday >= dailyGoal && doneToday > 0;
   const showDone = goalMet && !keepGoing;
   const queue = [...suggested, ...others].filter((p) => !skipped.includes(p.id));
 
